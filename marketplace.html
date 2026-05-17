@@ -127,22 +127,37 @@ input:focus,textarea:focus,select:focus{border-color:var(--accent)}
 .tx-video-player:hover .tx-video-controls{opacity:1}
 .tx-video-progress-container{width:100%;height:4px;background:rgba(255,255,255,0.2);cursor:pointer;position:relative;border-radius:2px}
 .tx-video-progress-filled{height:100%;background:var(--accent);width:0%;border-radius:2px;transition:width 0.1s linear}
-.tx-video-main-controls{display:flex;align-items:center;justify-content:space-between;color:#fff;font-size:12px}
+.tx-video-main-controls{display:flex;align-items:center;justify-content:space-between;color:#fff;font-size:12px;padding:0 4px}
 .tx-video-left-controls,.tx-video-right-controls{display:flex;align-items:center;gap:12px}
+.tx-video-volume-container{display:flex;align-items:center;gap:6px;position:relative}
+.tx-video-volume-slider{width:0;height:4px;background:rgba(255,255,255,0.2);appearance:none;outline:none;border-radius:2px;cursor:pointer;transition:width 0.2s, opacity 0.2s;opacity:0;border:none;padding:0}
+.tx-video-volume-container:hover .tx-video-volume-slider{width:60px;opacity:1}
+.tx-video-volume-slider::-webkit-slider-thumb{appearance:none;width:10px;height:10px;background:var(--accent);border-radius:50%;cursor:pointer}
 .tx-video-btn{background:none;border:none;color:#fff;cursor:pointer;padding:4px;display:flex;align-items:center;justify-content:center;transition:all 0.1s;font-size:16px}
 .tx-video-btn:hover{color:var(--accent2);transform:scale(1.1)}
-.tx-video-time{font-family:monospace;font-size:11px;color:#aaa}
-.tx-video-speed-badge{font-size:10px;background:rgba(255,255,255,0.15);padding:2px 6px;border-radius:4px;cursor:pointer;font-weight:700}
+.tx-video-time{font-family:monospace;font-size:11px;color:#aaa;min-width:80px}
+.tx-video-speed-badge{font-size:10px;background:rgba(255,255,255,0.15);padding:2px 6px;border-radius:4px;cursor:pointer;font-weight:700;white-space:nowrap}
 .tx-video-speed-badge:hover{background:rgba(255,255,255,0.3)}
+.tx-video-loading{position:absolute;inset:0;display:none;align-items:center;justify-content:center;background:rgba(0,0,0,0.4);z-index:5}
+.tx-video-loading::after{content:"";width:40px;height:40px;border:4px solid rgba(255,255,255,0.1);border-top-color:var(--accent);border-radius:50%;animation:tx-spin 0.8s linear infinite}
+@keyframes tx-spin { to { transform: rotate(360deg); } }
+.tx-video-player:hover .tx-video-controls{opacity:1}
+.tx-video-player.loading .tx-video-loading{display:flex}
 
-/* Image Viewer Lightbox */
-.tx-lightbox{position:fixed;inset:0;background:rgba(0,0,0,0.9);z-index:9999;display:none;align-items:center;justify-content:center;padding:40px;cursor:zoom-out;animation:tx-fade-in 0.2s ease}
+/* Image Viewer Lightbox Enhancements */
+.tx-lightbox{position:fixed;inset:0;background:rgba(0,0,0,0.95);z-index:9999;display:none;align-items:center;justify-content:center;padding:40px;cursor:zoom-out;animation:tx-fade-in 0.2s ease}
 .tx-lightbox.open{display:flex}
-.tx-lightbox-content{max-width:95%;max-height:95%;object-fit:contain;border-radius:8px;box-shadow:0 20px 50px rgba(0,0,0,0.5);cursor:default;transform:scale(0.9);transition:transform 0.3s cubic-bezier(0.18, 0.89, 0.32, 1.28)}
+.tx-lightbox-content{max-width:95%;max-height:95%;object-fit:contain;border-radius:8px;box-shadow:0 0 100px rgba(0,0,0,0.8);cursor:default;transform:scale(0.9);transition:transform 0.3s cubic-bezier(0.18, 0.89, 0.32, 1.28);background:transparent}
 .tx-lightbox.open .tx-lightbox-content{transform:scale(1)}
-.tx-lightbox-close{position:absolute;top:20px;right:20px;font-size:32px;color:#fff;cursor:pointer;background:none;border:none;width:48px;height:48px;display:flex;align-items:center;justify-content:center;border-radius:50%;transition:background 0.2s}
+.tx-lightbox-close{position:absolute;top:20px;right:20px;font-size:32px;color:#fff;cursor:pointer;background:none;border:none;width:48px;height:48px;display:flex;align-items:center;justify-content:center;border-radius:50%;transition:background 0.2s;z-index:10001}
 .tx-lightbox-close:hover{background:rgba(255,255,255,0.1)}
-.tx-lightbox-dl{position:absolute;bottom:20px;left:50%;transform:translateX(-50%);background:var(--accent);color:#fff;padding:10px 24px;border-radius:30px;font-weight:700;text-decoration:none;font-size:14px;box-shadow:0 10px 20px rgba(0,0,0,0.3)}
+.tx-lightbox-nav{position:absolute;top:50%;width:60px;height:60px;background:rgba(255,255,255,0.05);color:#fff;border:none;display:flex;align-items:center;justify-content:center;font-size:24px;cursor:pointer;border-radius:50%;transform:translateY(-50%);transition:all 0.2s;z-index:10001}
+.tx-lightbox-nav:hover{background:rgba(255,255,255,0.2);transform:translateY(-50%) scale(1.1)}
+.tx-lightbox-prev{left:20px}
+.tx-lightbox-next{right:20px}
+.tx-lightbox-dl{position:absolute;bottom:20px;left:50%;transform:translateX(-50%);background:var(--accent);color:#fff;padding:10px 24px;border-radius:30px;font-weight:700;text-decoration:none;font-size:14px;box-shadow:0 10px 30px rgba(0,0,0,0.5);z-index:10001;transition:all 0.2s}
+.tx-lightbox-dl:hover{background:var(--accent2);transform:translateX(-50%) translateY(-2px)}
+.tx-lightbox-counter{position:absolute;bottom:24px;left:24px;color:rgba(255,255,255,0.5);font-size:12px;font-family:monospace}
 .tx-chat-img:hover{transform:scale(1.02);filter:brightness(1.1)}
 
 @keyframes tx-fade-in { from { opacity: 0; } to { opacity: 1; } }
@@ -291,7 +306,10 @@ input:focus,textarea:focus,select:focus{border-color:var(--accent)}
 
 <div class="tx-lightbox" id="tx-lightbox" onclick="closeLightbox()">
   <button class="tx-lightbox-close" onclick="closeLightbox()">×</button>
+  <button class="tx-lightbox-nav tx-lightbox-prev" id="tx-lightbox-prev" onclick="event.stopPropagation(); navigateLightbox(-1)">❮</button>
+  <button class="tx-lightbox-nav tx-lightbox-next" id="tx-lightbox-next" onclick="event.stopPropagation(); navigateLightbox(1)">❯</button>
   <img src="" class="tx-lightbox-content" id="tx-lightbox-img" onclick="event.stopPropagation()">
+  <div class="tx-lightbox-counter" id="tx-lightbox-counter">1 / 1</div>
   <a href="" target="_blank" class="tx-lightbox-dl" id="tx-lightbox-dl" onclick="event.stopPropagation()">Download Original</a>
 </div>
 <script>
@@ -357,9 +375,14 @@ async function loadState() {
     supabase.from('chat_channels').select('*').order('is_private', { ascending: true }),
     supabase.from('announcements').select('*').eq('is_published', true).order('is_pinned', { ascending: false }).order('created_at', { ascending: false })
   ]);
-  state.items = itemsRes.data || [];
   state.channels = channelsRes.data || [];
+  state.items = itemsRes.data || [];
   state.announcements = annRes.data || [];
+  
+  if (state.channels.length > 0) {
+    const general = state.channels.find(c => c.name.toLowerCase() === 'general');
+    currentChannel = general ? general.id : state.channels[0].id;
+  }
   
   if (currentUser) {
     const { data } = await supabase.from('purchases').select('item_id').eq('buyer_id', currentUser.id);
@@ -473,6 +496,8 @@ function initVideoPlayers(container = document) {
     const speedBtn = player.querySelector('.tx-video-speed-badge');
     const pipBtn = player.querySelector('.pip-btn');
     const fsBtn = player.querySelector('.fullscreen-btn');
+    const volumeSlider = player.querySelector('.tx-video-volume-slider');
+    const volumeBtn = player.querySelector('.volume-btn');
 
     const togglePlay = () => {
       if (video.paused) {
@@ -484,14 +509,28 @@ function initVideoPlayers(container = document) {
       }
     };
 
-    video.addEventListener('click', togglePlay);
+    video.addEventListener('click', (e) => {
+      e.stopPropagation();
+      togglePlay();
+    });
+
+    video.addEventListener('dblclick', (e) => {
+      e.stopPropagation();
+      if (document.fullscreenElement) document.exitFullscreen();
+      else player.requestFullscreen();
+    });
+
     playPauseBtn.addEventListener('click', (e) => {
       e.stopPropagation();
       togglePlay();
     });
 
+    video.addEventListener('waiting', () => player.classList.add('loading'));
+    video.addEventListener('playing', () => player.classList.remove('loading'));
+    video.addEventListener('canplay', () => player.classList.remove('loading'));
+
     video.addEventListener('timeupdate', () => {
-      const progress = (video.currentTime / video.duration) * 100;
+      const progress = (video.currentTime / video.duration) * 100 || 0;
       progressFilled.style.width = `${progress}%`;
       const cur = formatDuration(video.currentTime);
       const dur = formatDuration(video.duration || 0);
@@ -499,9 +538,26 @@ function initVideoPlayers(container = document) {
     });
 
     progressContainer.addEventListener('click', (e) => {
+      e.stopPropagation();
       const rect = progressContainer.getBoundingClientRect();
       const pos = (e.clientX - rect.left) / rect.width;
       video.currentTime = pos * video.duration;
+    });
+
+    if (volumeSlider) {
+      volumeSlider.addEventListener('input', (e) => {
+        video.volume = e.target.value;
+        video.muted = (video.volume === 0);
+        volumeBtn.textContent = video.muted ? '🔇' : (video.volume > 0.5 ? '🔊' : '🔉');
+      });
+      volumeSlider.addEventListener('click', e => e.stopPropagation());
+    }
+
+    volumeBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      video.muted = !video.muted;
+      volumeBtn.textContent = video.muted ? '🔇' : (video.volume > 0.5 ? '🔊' : '🔉');
+      if (volumeSlider) volumeSlider.value = video.muted ? 0 : video.volume;
     });
 
     const speeds = [1, 1.25, 1.5, 2, 0.5];
@@ -517,7 +573,7 @@ function initVideoPlayers(container = document) {
       pipBtn.addEventListener('click', (e) => {
         e.stopPropagation();
         if (document.pictureInPictureElement) document.exitPictureInPicture();
-        else video.requestPictureInPicture();
+        else video.requestPictureInPicture().catch(console.error);
       });
     } else {
       pipBtn.style.display = 'none';
@@ -526,31 +582,75 @@ function initVideoPlayers(container = document) {
     fsBtn.addEventListener('click', (e) => {
       e.stopPropagation();
       if (document.fullscreenElement) document.exitFullscreen();
-      else player.requestFullscreen();
+      else player.requestFullscreen().catch(console.error);
     });
 
     video.addEventListener('ended', () => {
       playPauseBtn.textContent = '▶';
-      progressFilled.style.width = '0%';
+    });
+
+    // Keyboard controls when focused or hovering
+    player.addEventListener('mouseenter', () => {
+        player.focus();
+    });
+
+    player.setAttribute('tabindex', '0');
+    player.addEventListener('keydown', (e) => {
+        if (e.code === 'Space' || e.code === 'KeyK') { e.preventDefault(); togglePlay(); }
+        if (e.code === 'ArrowRight') { video.currentTime += 5; }
+        if (e.code === 'ArrowLeft') { video.currentTime -= 5; }
+        if (e.code === 'KeyF') { fsBtn.click(); }
+        if (e.code === 'KeyM') { volumeBtn.click(); }
     });
   });
 }
 
 function formatDuration(seconds) {
-  if (isNaN(seconds)) return '0:00';
-  const m = Math.floor(seconds / 60);
+  if (isNaN(seconds) || !isFinite(seconds)) return '0:00';
+  const h = Math.floor(seconds / 3600);
+  const m = Math.floor((seconds % 3600) / 60);
   const s = Math.floor(seconds % 60);
+  if (h > 0) return `${h}:${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
   return `${m}:${s.toString().padStart(2, '0')}`;
 }
 
+let lightboxList = [];
+let lightboxIdx = 0;
+
 function openLightbox(url) {
+  const images = Array.from(document.querySelectorAll('.tx-chat-img')).map(img => img.src);
+  lightboxList = images.length > 0 ? images : [url];
+  lightboxIdx = lightboxList.indexOf(url);
+  if (lightboxIdx === -1) {
+    lightboxList.push(url);
+    lightboxIdx = lightboxList.length - 1;
+  }
+  
+  updateLightbox();
   const lb = document.getElementById('tx-lightbox');
-  const img = document.getElementById('tx-lightbox-img');
-  const dl = document.getElementById('tx-lightbox-dl');
-  img.src = url;
-  dl.href = url;
   lb.classList.add('open');
   document.body.style.overflow = 'hidden';
+}
+
+function updateLightbox() {
+  const img = document.getElementById('tx-lightbox-img');
+  const dl = document.getElementById('tx-lightbox-dl');
+  const counter = document.getElementById('tx-lightbox-counter');
+  const prev = document.getElementById('tx-lightbox-prev');
+  const next = document.getElementById('tx-lightbox-next');
+  
+  const url = lightboxList[lightboxIdx];
+  img.src = url;
+  dl.href = url;
+  counter.textContent = `${lightboxIdx + 1} / ${lightboxList.length}`;
+  
+  prev.style.display = lightboxList.length > 1 ? 'flex' : 'none';
+  next.style.display = lightboxList.length > 1 ? 'flex' : 'none';
+}
+
+function navigateLightbox(dir) {
+  lightboxIdx = (lightboxIdx + dir + lightboxList.length) % lightboxList.length;
+  updateLightbox();
 }
 
 function closeLightbox() {
@@ -578,23 +678,25 @@ function createMessageElement(msg) {
   return div;
 }
 function formatMessage(msg) {
-  let text = escapeHtml(msg.content).replace(/:(\w+):/g, '<span style="color:var(--gold)">:$1:</span>').replace(/\n/g, '<br>');
+  const content = fixSupabaseUrl(msg.content);
+  let text = escapeHtml(content).replace(/:(\w+):/g, '<span style="color:var(--gold)">:$1:</span>').replace(/\n/g, '<br>');
   if (msg.message_type === 'embed') {
     text = `<div style="border-left:3px solid var(--primary);padding-left:10px;margin-top:10px;">
       <h4 style="margin:0;color:var(--primary)">${escapeHtml(msg.embed_data?.title || 'Embed')}</h4>
       <a href="${escapeHtml(msg.embed_data?.url || '#')}" target="_blank" style="color:#aaa">${escapeHtml(msg.embed_data?.url || '')}</a>
     </div>`;
   } else if (msg.message_type === 'sticker') {
-    text = `<div style="font-size:40px;margin-top:5px;">🧩 ${escapeHtml(msg.content)}</div>`;
+    text = `<div style="font-size:40px;margin-top:5px;">🧩 ${escapeHtml(content)}</div>`;
   } else if (msg.message_type === 'file') {
-    const isImg = /\.(jpg|jpeg|png|gif|webp)$/i.test(msg.content);
-    const isVid = /\.(mp4|webm|ogg|mov)$/i.test(msg.content);
+    const isImg = /\.(jpg|jpeg|png|gif|webp)$/i.test(content);
+    const isVid = /\.(mp4|webm|ogg|mov)$/i.test(content);
     if (isImg) {
-      text = `<div style="margin-top:8px;"><img src="${msg.content}" class="tx-chat-img" onclick="openLightbox('${msg.content}')" style="max-width:100%;max-height:300px;border-radius:8px;border:1px solid var(--brd);cursor:zoom-in;transition:transform 0.2s"></div>`;
+      text = `<div style="margin-top:8px;"><img src="${content}" class="tx-chat-img" onclick="openLightbox('${content}')" style="max-width:100%;max-height:300px;border-radius:8px;border:1px solid var(--brd);cursor:zoom-in;transition:transform 0.2s"></div>`;
     } else if (isVid) {
       text = `
-        <div class="tx-video-player" data-src="${msg.content}">
-          <video class="tx-video-element" src="${msg.content}" preload="metadata"></video>
+        <div class="tx-video-player" data-src="${content}">
+          <div class="tx-video-loading"></div>
+          <video class="tx-video-element" src="${content}" preload="metadata" playsinline></video>
           <div class="tx-video-controls">
             <div class="tx-video-progress-container">
               <div class="tx-video-progress-filled"></div>
@@ -602,26 +704,38 @@ function formatMessage(msg) {
             <div class="tx-video-main-controls">
               <div class="tx-video-left-controls">
                 <button class="tx-video-btn play-pause-btn">▶</button>
+                <div class="tx-video-volume-container">
+                    <button class="tx-video-btn volume-btn">🔊</button>
+                    <input type="range" class="tx-video-volume-slider" min="0" max="1" step="0.05" value="1">
+                </div>
                 <div class="tx-video-time">0:00 / 0:00</div>
               </div>
               <div class="tx-video-right-controls">
                 <div class="tx-video-speed-badge">1x</div>
-                <button class="tx-video-btn pip-btn">📺</button>
-                <button class="tx-video-btn fullscreen-btn">⛶</button>
+                <button class="tx-video-btn pip-btn" title="Picture in Picture">📺</button>
+                <button class="tx-video-btn fullscreen-btn" title="Fullscreen">⛶</button>
               </div>
             </div>
           </div>
         </div>`;
     } else {
-      const fileName = msg.content.split('/').pop().split('_').slice(1).join('_') || 'File';
+      const fileName = content.split('/').pop().split('_').slice(1).join('_') || 'File';
       text = `<div class="msg-embed">
         <div class="msg-embed-title">📁 Attached File</div>
         <div class="msg-embed-desc">${escapeHtml(fileName)}</div>
-        <a href="${msg.content}" target="_blank" class="nav-btn nav-btn-primary mt-8" style="display:inline-block;padding:4px 12px;font-size:11px;">Download</a>
+        <a href="${content}" target="_blank" class="nav-btn nav-btn-primary mt-8" style="display:inline-block;padding:4px 12px;font-size:11px;">Download</a>
       </div>`;
     }
   }
   return text;
+}
+function fixSupabaseUrl(url) {
+  if (typeof url !== 'string') return url;
+  // Fix legacy or incomplete Supabase storage URLs
+  if (url.includes('/storage/v1/object/terrix/')) {
+    return url.replace('/storage/v1/object/terrix/', '/storage/v1/object/public/TerriX%20Bucket/');
+  }
+  return url;
 }
 function renderAnnouncements() {
   const list = document.getElementById('announcements-list');
@@ -677,6 +791,8 @@ function setupEventListeners() {
   });
   window.addEventListener('keydown', (e) => {
     if (e.key === 'Escape') closeLightbox();
+    if (e.key === 'ArrowLeft' && document.getElementById('tx-lightbox').classList.contains('open')) navigateLightbox(-1);
+    if (e.key === 'ArrowRight' && document.getElementById('tx-lightbox').classList.contains('open')) navigateLightbox(1);
   });
   document.getElementById('chat-file-input').addEventListener('change', async (e) => {
     const file = e.target.files[0];
@@ -1160,16 +1276,16 @@ async function saveProfile() {
   closeModal();
 }
 
-async function uploadFile(file, path = 'terrix') {
+async function uploadFile(file, path = 'TerriX Bucket') {
     const fileName = `${Date.now()}_${file.name.replace(/\s+/g, '_')}`;
-    const { data, error } = await supabase.storage.from('terrix').upload(fileName, file);
+    const { data, error } = await supabase.storage.from('TerriX Bucket').upload(fileName, file);
     if (error) {
         if (error.message === 'Bucket not found') {
-            alert('Upload bucket "terrix" not found. Please create it in Supabase dashboard.');
+            alert('Upload bucket "TerriX Bucket" not found. Please create it in Supabase dashboard.');
         }
         throw error;
     }
-    const { data: { publicUrl } } = supabase.storage.from('terrix').getPublicUrl(data.path);
+    const { data: { publicUrl } } = supabase.storage.from('TerriX Bucket').getPublicUrl(data.path);
     return publicUrl;
 }
 
