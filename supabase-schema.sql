@@ -604,8 +604,16 @@ GRANT EXECUTE ON ALL FUNCTIONS IN SCHEMA public TO anon, authenticated, service_
 -- 12. STORAGE POLICIES (TerriX Bucket)
 -- =====================================================
 INSERT INTO storage.buckets (id, name, public) VALUES ('TerriX Bucket', 'TerriX Bucket', true) ON CONFLICT (id) DO UPDATE SET public = true;
+
+DROP POLICY IF EXISTS "Public Read Access" ON storage.objects;
 CREATE POLICY "Public Read Access" ON storage.objects FOR SELECT USING (bucket_id = 'TerriX Bucket');
+
+DROP POLICY IF EXISTS "Authenticated Upload Access" ON storage.objects;
 CREATE POLICY "Authenticated Upload Access" ON storage.objects FOR INSERT WITH CHECK (bucket_id = 'TerriX Bucket');
+
+DROP POLICY IF EXISTS "Authenticated Update Access" ON storage.objects;
 CREATE POLICY "Authenticated Update Access" ON storage.objects FOR UPDATE USING (bucket_id = 'TerriX Bucket');
+
+DROP POLICY IF EXISTS "Authenticated Delete Access" ON storage.objects;
 CREATE POLICY "Authenticated Delete Access" ON storage.objects FOR DELETE USING (bucket_id = 'TerriX Bucket');
 
