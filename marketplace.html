@@ -283,10 +283,31 @@ document.addEventListener('DOMContentLoaded', async () => {
 async function initSupabase() {
   const supabaseModule = window.supabase || await import('https://cdn.jsdelivr.net/npm/@supabase/supabase-js/+esm');
   supabase = supabaseModule.createClient ? supabaseModule.createClient(SUPABASE_URL, SUPABASE_KEY) : window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+  
+  // Try Supabase Auth first
   const { data: { user } } = await supabase.auth.getUser();
   currentUser = user;
-  if (user) {
-    const { data } = await supabase.from('terrix_accounts').select('*').eq('id', user.id).maybeSingle();
+
+  // If no Supabase user, check for TerriX custom session
+  if (!currentUser) {
+    const saved = localStorage.getItem('terrix_session');
+    if (saved) {
+      try {
+        const sessionData = JSON.parse(saved);
+        const { data: acc } = await supabase.from('terrix_accounts').select('*').eq('id', sessionData.id).maybeSingle();
+        if (acc) {
+            currentUser = { id: acc.id, user_metadata: { username: acc.username, avatar_url: acc.avatar_url, is_premium: acc.is_premium }, profile: acc };
+            updateUIForUser();
+            updateProfileView();
+        }
+      } catch(e) {
+        console.error('Failed to restore TerriX session:', e);
+      }
+    }
+  }
+
+  if (currentUser && !currentUser.profile) {
+    const { data } = await supabase.from('terrix_accounts').select('*').eq('id', currentUser.id).maybeSingle();
     if (data) {
       currentUser.profile = data;
       updateUIForUser();
@@ -471,6 +492,7 @@ function setupEventListeners() {
   document.getElementById('login-btn').addEventListener('click', () => {
     if (currentUser) {
       supabase.auth.signOut();
+      localStorage.removeItem('terrix_session');
       currentUser = null;
       updateUIForUser();
     } else {
@@ -498,7 +520,7 @@ function updateUIForUser() {
     document.getElementById('create-announcement-btn')?.classList.add('hidden');
   }
 }
-function sendMessage() {
+async function sendMessage() {
   const input = document.getElementById('chat-input');
   let content = input.value.trim();
   if (!content) return;
@@ -529,17 +551,22 @@ function sendMessage() {
     return alert('Premium required to use chat commands!');
   }
 
-  supabase.from('chat_messages').insert([{
-    channel_id: currentChannel,
-    user_id: currentUser.id,
-    user_username: currentUser.user_metadata?.username || 'Anonymous',
-    user_avatar: currentUser.user_metadata?.avatar_url || null,
-    user_is_premium: currentUser.user_metadata?.is_premium || false,
-    content,
-    message_type: msgType,
-    embed_data: embedData
-  }]);
-  input.value = '';
+  try {
+    const { error } = await supabase.from('chat_messages').insert([{
+        channel_id: currentChannel,
+        user_id: currentUser.id,
+        user_username: currentUser.user_metadata?.username || 'Anonymous',
+        user_avatar: currentUser.user_metadata?.avatar_url || null,
+        user_is_premium: currentUser.user_metadata?.is_premium || false,
+        content,
+        message_type: msgType,
+        embed_data: embedData
+    }]);
+    if (error) throw error;
+    input.value = '';
+  } catch (err) {
+    alert('Failed to send message: ' + err.message);
+  }
 }
 function showModal(type, data = {}) {
   const overlay = document.getElementById('modal-overlay');
@@ -807,11 +834,10 @@ async function handleLogin() {
   const form = document.getElementById('login-form');
   const username = form.username.value;
   const password = form.password.value;
-  const email = form.email.value;
   if (!username || !password) return alert('Username and password required');
   const { data, error } = await supabase
     .from('terrix_accounts')
-    .select('id, password_hash, username, bio, avatar_url, banner_url, is_premium, linked_territorial_username')
+    .select('*')
     .eq('username', username)
     .maybeSingle();
   if (error || !data) {
@@ -820,8 +846,12 @@ async function handleLogin() {
   }
   const hash = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(password)).then(b => Array.from(new Uint8Array(b)).map(x => x.toString(16).padStart(2, '0')).join(''));
   if (hash !== data.password_hash) return alert('Invalid password');
+  
   currentUser = { id: data.id, user_metadata: { username: data.username, avatar_url: data.avatar_url, is_premium: data.is_premium }, profile: data };
+  localStorage.setItem('terrix_session', JSON.stringify({ id: data.id, u: username }));
+  
   updateUIForUser();
+  updateProfileView();
   closeModal();
   if (currentUser.user_metadata.is_premium) document.getElementById('premium-btn').classList.add('hidden');
 }
@@ -829,7 +859,6 @@ async function handleRegister() {
   const form = document.getElementById('login-form');
   const username = form.username.value;
   const password = form.password.value;
-  const email = form.email.value;
   if (!username || !password) return alert('Username and password required');
   const { data: existing } = await supabase.from('terrix_accounts').select('id').eq('username', username).maybeSingle();
   if (existing) return alert('Username taken');
@@ -841,10 +870,14 @@ async function handleRegister() {
     is_premium: false,
     gold_balance: 0,
     created_at: new Date().toISOString()
-  }]).select('id, username, bio, avatar_url, banner_url, is_premium').single();
+  }]).select('*').single();
   if (error) return alert('Registration failed: ' + error.message);
+  
   currentUser = { id: data.id, user_metadata: { username: data.username, avatar_url: null, is_premium: data.is_premium }, profile: data };
+  localStorage.setItem('terrix_session', JSON.stringify({ id: data.id, u: username }));
+  
   updateUIForUser();
+  updateProfileView();
   closeModal();
 }
 async function createChannel() {
