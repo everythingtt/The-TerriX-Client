@@ -1488,19 +1488,8 @@
             '        <div style="display:flex; gap:4px;">',
             '          <input type="text" id="tx-market-search" placeholder="Search scripts..." style="flex:1; background:#222; border:1px solid #444; color:#fff; padding:4px; font-size:11px;">',
             '        </div>',
-            '        <div id="tx-market-grid" style="display:grid; grid-template-columns:1fr; gap:8px; max-height:220px; overflow-y:auto; padding-right:4px;">',
+            '        <div id="tx-market-grid" style="display:grid; grid-template-columns:1fr; gap:8px; max-height:430px; overflow-y:auto; padding-right:4px;">',
             '          <div style="color:#888; text-align:center; padding:20px;">Loading scripts...</div>',
-            '        </div>',
-            '        <div id="tx-market-chat" style="display:flex; flex-direction:column; gap:6px; border-top:1px solid #333; margin-top:10px; padding-top:10px; height:200px;">',
-            '          <div style="display:flex; justify-content:space-between; align-items:center;">',
-            '            <span style="font-size:11px; font-weight:bold; color:#aaa;">Global Chat</span>',
-            '            <select id="tx-chat-channel-sel" style="background:#222; border:1px solid #444; color:#fff; font-size:9px; padding:1px;"></select>',
-            '          </div>',
-            '          <div id="tx-chat-msgs" style="flex:1; background:#0a0a0a; border:1px solid #222; overflow-y:auto; padding:6px; font-size:11px; color:#eee; display:flex; flex-direction:column; gap:4px;"></div>',
-            '          <div style="display:flex; gap:2px;">',
-            '            <input type="text" id="tx-chat-input" placeholder="Say something..." style="flex:1; background:#222; border:1px solid #444; color:#fff; padding:4px; font-size:10px;">',
-            '            <button id="tx-chat-send" style="background:#4a4; border:none; color:#fff; padding:0 8px; cursor:pointer; font-size:10px;">Send</button>',
-            '          </div>',
             '        </div>',
             '      </div>',
             '    </div>',
@@ -1776,15 +1765,6 @@
         const headerUser = document.getElementById('tx-header-user');
         const authStatus = document.getElementById('tx-market-auth-status');
         
-        const chatMsgs = document.getElementById('tx-chat-msgs');
-        const chatInput = document.getElementById('tx-chat-input');
-        const chatSend = document.getElementById('tx-chat-send');
-        const chanSel = document.getElementById('tx-chat-channel-sel');
-
-        let currentChannelId = null;
-        let chatSubscription = null;
-        let marketChannels = [];
-
         try {
             const sm = await import('https://cdn.jsdelivr.net/npm/@supabase/supabase-js/+esm');
             TERRIX.auth.supabase = sm.createClient(SUPABASE_URL, SUPABASE_KEY);
@@ -1824,7 +1804,6 @@
                 TERRIX.auth.purchased = pur ? pur.map(p => p.item_id) : [];
                 
                 renderMarket();
-                loadChat();
                 if (!silent) toast(`Welcome, ${acc.username}!`);
             }
 
@@ -1837,59 +1816,9 @@
                 headerUser.style.color = '#aaa';
                 authStatus.textContent = 'Not Logged In';
                 renderMarket();
-                loadChat();
                 toast('Logged out.');
             }
 
-            async function loadChat() {
-                if (!TERRIX.auth.supabase) return;
-                const { data } = await TERRIX.auth.supabase.from('chat_channels').select('*').order('name');
-                marketChannels = data || [];
-                chanSel.innerHTML = marketChannels.map(c => `<option value="${c.id}">${c.name}</option>`).join('');
-                if (marketChannels.length > 0) joinChannel(marketChannels[0].id);
-            }
-
-            async function joinChannel(id) {
-                currentChannelId = id;
-                if (chatSubscription) TERRIX.auth.supabase.removeChannel(chatSubscription);
-                chatMsgs.innerHTML = '<div style="color:#444;text-align:center;padding-top:20px;">Loading history...</div>';
-                
-                const { data } = await TERRIX.auth.supabase.from('chat_messages').select('*').eq('channel_id', id).order('created_at', { ascending: true }).limit(50);
-                chatMsgs.innerHTML = '';
-                (data || []).forEach(appendChatMsg);
-                
-                chatSubscription = TERRIX.auth.supabase.channel(`public:chat_messages:channel_id=eq.${id}`)
-                    .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'chat_messages', filter: `channel_id=eq.${id}` }, p => appendChatMsg(p.new))
-                    .subscribe();
-            }
-
-            function appendChatMsg(msg) {
-                const div = document.createElement('div');
-                const isAdmin = msg.user_username === 'TerriX Exploits Inc.';
-                div.innerHTML = `<span style="color:${isAdmin?'#f55':'#4a4'}; font-weight:bold;">${msg.user_username}:</span> <span style="color:#ccc;">${msg.content.replace(/</g,'&lt;')}</span>`;
-                chatMsgs.appendChild(div);
-                chatMsgs.scrollTop = chatMsgs.scrollHeight;
-            }
-
-            chatSend.onclick = async () => {
-                const content = chatInput.value.trim();
-                if (!content || !TERRIX.auth.user) return !TERRIX.auth.user && alert('Login to chat');
-                const chan = marketChannels.find(c => c.id === currentChannelId);
-                if (chan && (chan.is_announcement || chan.name === 'announcements')) {
-                    if (TERRIX.auth.user.user_metadata.username !== 'TerriX Exploits Inc.') return alert('Only TerriX Exploits Inc. can post here.');
-                }
-                await TERRIX.auth.supabase.from('chat_messages').insert([{
-                    channel_id: currentChannelId,
-                    user_id: TERRIX.auth.user.id,
-                    user_username: TERRIX.auth.user.user_metadata.username,
-                    content: content
-                }]);
-                chatInput.value = '';
-            };
-
-            chanSel.onchange = (e) => joinChannel(e.target.value);
-            chatInput.onkeypress = (e) => e.key === 'Enter' && chatSend.click();
-            
             await fetchMarket();
         } catch(e) {
             marketGrid.innerHTML = '<div style="color:red;padding:10px;">Marketplace Error.</div>';
