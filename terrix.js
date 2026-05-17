@@ -1564,6 +1564,19 @@
         }
 
         function execCode(code) {
+            // TerriX Executor Validation: check for valid key
+            if (code.includes('/* KEY INJECTED: {{KEY}} */')) {
+                txOutput.innerHTML = '<div class="tx-log-line tx-log-err">✗ Execution Failed: Item not purchased. No key found.</div>';
+                txOutput.style.color = '#f44';
+                return;
+            }
+            const keyMatch = code.match(/\/\* KEY INJECTED: (TX-[a-zA-Z0-9-]+) \*\//);
+            if (!keyMatch) {
+                // If no key system injection, allow it (maybe a free script)
+            } else {
+                Logger.log('Validated using key:', keyMatch[1]);
+            }
+
             const logs = [];
             const cappedLog = function() {
                 const msg = Array.from(arguments).join(' ');
