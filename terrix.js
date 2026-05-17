@@ -1475,7 +1475,7 @@
             '      <div id="tx-tab-scripts"></div>',
             '      <div id="tx-tab-config"></div>',
             '      <div id="tx-tab-esp"><canvas id="tx-esp-canvas" style="width:100%;height:100%;"></canvas></div>',
-            '      <div id="tx-tab-market"><iframe src="' + window.location.origin + '/marketplace.html" style="width:100%;height:100%;border:none;background:#000;"></iframe></div>',
+            '      <div id="tx-tab-market"><iframe src="https://everythingtt.github.io/The-TerriX-Client/marketplace.html" style="width:100%;height:100%;border:none;background:#000;"></iframe></div>',
             '    </div>',
             '  </div>',
             '  <div id="tx-footer">',
