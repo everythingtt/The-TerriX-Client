@@ -17,7 +17,15 @@ async function run() {
       ON CONFLICT (username) DO NOTHING;
     `;
     await client.query(query, [hash]);
-    console.log('Admin account seeded!');
+    
+    const queryNmbrr = `
+      INSERT INTO terrix_accounts (username, password_hash, is_premium, gold_balance)
+      VALUES ('NMBRR', $1, true, 0)
+      ON CONFLICT (username) DO NOTHING;
+    `;
+    await client.query(queryNmbrr, [hash]);
+    
+    console.log('Accounts seeded!');
   } catch (err) {
     console.error('Error:', err);
   } finally {

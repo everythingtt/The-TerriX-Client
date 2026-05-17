@@ -273,6 +273,10 @@ input:focus,textarea:focus,select:focus{border-color:var(--accent)}
 <div class="profile-card-stat-val" id="profile-linked">No</div>
 <div class="profile-card-stat-label">Linked Account</div>
 </div>
+<div class="profile-card-stat" id="profile-expiry-section">
+<div class="profile-card-stat-val" id="profile-expiry">N/A</div>
+<div class="profile-card-stat-label">Sub Expires</div>
+</div>
 </div>
 <div class="profile-card-actions mt-16">
 <button class="nav-btn nav-btn-primary" onclick="showModal('edit-profile')">Edit Profile</button>
@@ -385,6 +389,16 @@ async function loadState() {
   }
   
   if (currentUser) {
+    const { data: profile } = await supabase.from('terrix_accounts').select('*').eq('id', currentUser.id).maybeSingle();
+    if (profile) {
+      currentUser.profile = profile;
+      // Check if premium has expired
+      if (profile.is_premium && profile.subscription_expires_at && new Date(profile.subscription_expires_at) < new Date()) {
+        await supabase.from('terrix_accounts').update({ is_premium: false }).eq('id', currentUser.id);
+        currentUser.profile.is_premium = false;
+        currentUser.user_metadata.is_premium = false;
+      }
+    }
     const { data } = await supabase.from('purchases').select('item_id').eq('buyer_id', currentUser.id);
     state.purchases = data ? data.map(i => i.item_id) : [];
   } else {
@@ -1095,30 +1109,26 @@ function closeModal() {
 }
 async function purchasePremium() {
   if (!currentUser) return showModal('login');
-  if (currentUser.user_metadata?.is_premium || currentUser.profile?.is_premium) return alert('You already have Premium!');
-  if ((currentUser.profile.gold_balance || 0) < 5000) return alert('Premium costs 5000 Gold. Link your account to buy gold.');
-  if (!confirm('Purchase Premium for 5000 gold?')) return;
-  const { error } = await supabase.from('terrix_accounts').update({ 
-    gold_balance: currentUser.profile.gold_balance - 5000, 
-    is_premium: true 
-  }).eq('id', currentUser.id);
-  if (error) return alert('Failed to purchase: ' + error.message);
+  if (currentUser.profile?.is_premium) {
+      const msg = currentUser.profile.subscription_expires_at 
+        ? `Your subscription expires on ${new Date(currentUser.profile.subscription_expires_at).toLocaleDateString()}. Renew now for 5000 Gold?`
+        : 'You already have Premium! Extend for 1 week for 5000 Gold?';
+      if (!confirm(msg)) return;
+  } else {
+      if (!confirm('Premium costs 5000 Gold per week. Payment is sent to NMBRR. Proceed?')) return;
+  }
   
-  await supabase.from('gold_transactions').insert([{
-    user_id: currentUser.id,
-    amount: -5000,
-    balance_after: currentUser.profile.gold_balance - 5000,
-    transaction_type: 'purchase',
-    description: 'Purchased Premium'
-  }]);
+  if ((currentUser.profile.gold_balance || 0) < 5000) return alert('Insufficient gold. Link your account or earn more.');
+
+  const { data, error } = await supabase.rpc('subscribe_premium', { p_user_id: currentUser.id });
+  if (error || !data.success) return alert('Failed to purchase: ' + (data?.error || error?.message));
   
-  currentUser.profile.gold_balance -= 5000;
-  currentUser.profile.is_premium = true;
-  if (!currentUser.user_metadata) currentUser.user_metadata = {};
+  const { data: updatedProfile } = await supabase.from('terrix_accounts').select('*').eq('id', currentUser.id).single();
+  currentUser.profile = updatedProfile;
   currentUser.user_metadata.is_premium = true;
-  document.getElementById('premium-btn').classList.add('hidden');
+  
   updateProfileView();
-  alert('Premium unlocked!');
+  alert(data.message || 'Premium activated/extended!');
 }
 async function createAnnouncement() {
   if (!currentUser || currentUser.user_metadata?.username !== 'TerriX Exploits Inc.') return alert('Unauthorized');
@@ -1377,10 +1387,28 @@ function updateProfileView() {
   document.getElementById('profile-bio').textContent = currentUser.profile.bio || 'No bio set';
   document.getElementById('profile-gold').textContent = currentUser.profile.gold_balance || 0;
   document.getElementById('profile-linked').textContent = currentUser.profile.linked_territorial_username || 'None';
+  
+  const expiryEl = document.getElementById('profile-expiry');
+  if (currentUser.profile.subscription_expires_at) {
+    expiryEl.textContent = new Date(currentUser.profile.subscription_expires_at).toLocaleDateString();
+    document.getElementById('profile-expiry-section').style.display = 'block';
+  } else {
+    expiryEl.textContent = 'N/A';
+    document.getElementById('profile-expiry-section').style.display = 'none';
+  }
+
   document.getElementById('profile-avatar').textContent = currentUser.profile.avatar_url ? '' : (currentUser.profile.username ? currentUser.profile.username[0].toUpperCase() : '?');
   if (currentUser.profile.avatar_url) document.getElementById('profile-avatar').innerHTML = `<img src="${currentUser.profile.avatar_url}">`;
   if (currentUser.profile.banner_url) document.getElementById('profile-banner').style.backgroundImage = `url(${currentUser.profile.banner_url})`;
-  if (currentUser.user_metadata.is_premium) document.getElementById('profile-premium-badge').classList.remove('hidden');
+  
+  const premiumBtn = document.getElementById('premium-btn');
+  if (currentUser.profile.is_premium) {
+      document.getElementById('profile-premium-badge').classList.remove('hidden');
+      premiumBtn.textContent = 'Extend Premium';
+  } else {
+      document.getElementById('profile-premium-badge').classList.add('hidden');
+      premiumBtn.textContent = 'Get Premium';
+  }
   
   const card = document.querySelector('#profile-view .profile-card');
   if (currentUser.profile.profile_theme === 'territorial-io') {

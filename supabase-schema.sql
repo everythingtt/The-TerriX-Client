@@ -19,6 +19,7 @@ CREATE TABLE IF NOT EXISTS terrix_accounts (
     avatar_url TEXT,
     banner_url TEXT,
     is_premium BOOLEAN DEFAULT FALSE,
+    subscription_expires_at TIMESTAMPTZ,
     gold_balance INTEGER DEFAULT 0,
     linked_territorial_username VARCHAR(64),
     reputation_score INTEGER DEFAULT 0,
@@ -400,6 +401,57 @@ BEGIN
     VALUES (v_item.author_id, 'sale', 'Item Sold!', 'Your item "' || v_item.title || '" was purchased by ' || v_buyer.username, 'purchase', p_item_id);
 
     RETURN json_build_object('success', true, 'message', 'Purchase successful');
+END;
+$$ LANGUAGE plpgsql;
+
+-- Subscribe premium procedure
+CREATE OR REPLACE FUNCTION subscribe_premium(
+    p_user_id UUID
+)
+RETURNS JSON AS $$
+DECLARE
+    v_user RECORD;
+    v_nmbrr RECORD;
+    v_cost INTEGER := 5000;
+BEGIN
+    -- Get user details
+    SELECT * INTO v_user FROM terrix_accounts WHERE id = p_user_id;
+    IF NOT FOUND THEN
+        RETURN json_build_object('success', false, 'error', 'User not found');
+    END IF;
+
+    -- Check balance
+    IF v_user.gold_balance < v_cost THEN
+        RETURN json_build_object('success', false, 'error', 'Insufficient gold');
+    END IF;
+
+    -- Find NMBRR account
+    SELECT * INTO v_nmbrr FROM terrix_accounts WHERE username = 'NMBRR';
+    
+    -- Deduct from user
+    UPDATE terrix_accounts 
+    SET gold_balance = gold_balance - v_cost, 
+        is_premium = TRUE,
+        subscription_expires_at = CASE 
+            WHEN subscription_expires_at > NOW() THEN subscription_expires_at + INTERVAL '1 week'
+            ELSE NOW() + INTERVAL '1 week'
+        END
+    WHERE id = p_user_id;
+
+    -- If NMBRR exists, give them the gold
+    IF v_nmbrr.id IS NOT NULL THEN
+        UPDATE terrix_accounts SET gold_balance = gold_balance + v_cost WHERE id = v_nmbrr.id;
+        
+        -- Log transaction for NMBRR
+        INSERT INTO gold_transactions (user_id, amount, balance_after, transaction_type, description)
+        VALUES (v_nmbrr.id, v_cost, (SELECT gold_balance FROM terrix_accounts WHERE id = v_nmbrr.id), 'bonus', 'Subscription payment from ' || v_user.username);
+    END IF;
+
+    -- Log transaction for user
+    INSERT INTO gold_transactions (user_id, amount, balance_after, transaction_type, description)
+    VALUES (p_user_id, -v_cost, v_user.gold_balance - v_cost, 'purchase', 'Purchased 1 week of Premium');
+
+    RETURN json_build_object('success', true, 'message', 'Subscription successful');
 END;
 $$ LANGUAGE plpgsql;
 
