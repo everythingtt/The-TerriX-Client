@@ -446,52 +446,79 @@ ALTER TABLE notifications ENABLE ROW LEVEL SECURITY;
 ALTER TABLE reports ENABLE ROW LEVEL SECURITY;
 
 -- terrix_accounts policies
+DROP POLICY IF EXISTS "Public profiles are viewable by everyone" ON terrix_accounts;
 CREATE POLICY "Public profiles are viewable by everyone" ON terrix_accounts FOR SELECT USING (TRUE);
+DROP POLICY IF EXISTS "Users can update own profile" ON terrix_accounts;
 CREATE POLICY "Users can update own profile" ON terrix_accounts FOR UPDATE USING (TRUE);
+DROP POLICY IF EXISTS "Users can insert own profile" ON terrix_accounts;
 CREATE POLICY "Users can insert own profile" ON terrix_accounts FOR INSERT WITH CHECK (TRUE);
 
 -- marketplace_items policies
+DROP POLICY IF EXISTS "Approved items are viewable by everyone" ON marketplace_items;
 CREATE POLICY "Approved items are viewable by everyone" ON marketplace_items FOR SELECT USING (is_approved = TRUE OR TRUE);
+DROP POLICY IF EXISTS "Authenticated users can create items" ON marketplace_items;
 CREATE POLICY "Authenticated users can create items" ON marketplace_items FOR INSERT WITH CHECK (TRUE);
+DROP POLICY IF EXISTS "Authors can update own items" ON marketplace_items;
 CREATE POLICY "Authors can update own items" ON marketplace_items FOR UPDATE USING (TRUE);
 
 -- item_reviews policies
+DROP POLICY IF EXISTS "Reviews are viewable by everyone" ON item_reviews;
 CREATE POLICY "Reviews are viewable by everyone" ON item_reviews FOR SELECT USING (TRUE);
+DROP POLICY IF EXISTS "Authenticated users can create reviews" ON item_reviews;
 CREATE POLICY "Authenticated users can create reviews" ON item_reviews FOR INSERT WITH CHECK (TRUE);
+DROP POLICY IF EXISTS "Users can update own reviews" ON item_reviews;
 CREATE POLICY "Users can update own reviews" ON item_reviews FOR UPDATE USING (TRUE);
 
 -- purchases policies
+DROP POLICY IF EXISTS "Users can view own purchases" ON purchases;
 CREATE POLICY "Users can view own purchases" ON purchases FOR SELECT USING (TRUE);
+DROP POLICY IF EXISTS "Authenticated users can create purchases" ON purchases;
 CREATE POLICY "Authenticated users can create purchases" ON purchases FOR INSERT WITH CHECK (TRUE);
 
 -- chat_channels policies
+DROP POLICY IF EXISTS "Public channels are viewable by everyone" ON chat_channels;
 CREATE POLICY "Public channels are viewable by everyone" ON chat_channels FOR SELECT USING (TRUE);
+DROP POLICY IF EXISTS "Authenticated users can create channels" ON chat_channels;
 CREATE POLICY "Authenticated users can create channels" ON chat_channels FOR INSERT WITH CHECK (TRUE);
 
 -- chat_messages policies
+DROP POLICY IF EXISTS "Messages are viewable by channel members" ON chat_messages;
 CREATE POLICY "Messages are viewable by channel members" ON chat_messages FOR SELECT USING (TRUE);
+DROP POLICY IF EXISTS "Authenticated users can send messages" ON chat_messages;
 CREATE POLICY "Authenticated users can send messages" ON chat_messages FOR INSERT WITH CHECK (TRUE);
+DROP POLICY IF EXISTS "Users can update own messages" ON chat_messages;
 CREATE POLICY "Users can update own messages" ON chat_messages FOR UPDATE USING (TRUE);
 
 -- announcements policies
+DROP POLICY IF EXISTS "Published announcements are viewable by everyone" ON announcements;
 CREATE POLICY "Published announcements are viewable by everyone" ON announcements FOR SELECT USING (is_published = TRUE OR TRUE);
+DROP POLICY IF EXISTS "Admins can manage announcements" ON announcements;
 CREATE POLICY "Admins can manage announcements" ON announcements FOR ALL USING (TRUE);
 
 -- gold_transactions policies
+DROP POLICY IF EXISTS "Users can view own transactions" ON gold_transactions;
 CREATE POLICY "Users can view own transactions" ON gold_transactions FOR SELECT USING (TRUE);
+DROP POLICY IF EXISTS "System can create transactions" ON gold_transactions;
 CREATE POLICY "System can create transactions" ON gold_transactions FOR INSERT WITH CHECK (TRUE);
 
 -- private_messages policies
+DROP POLICY IF EXISTS "Users can view own messages" ON private_messages;
 CREATE POLICY "Users can view own messages" ON private_messages FOR SELECT USING (TRUE);
+DROP POLICY IF EXISTS "Authenticated users can send messages" ON private_messages;
 CREATE POLICY "Authenticated users can send messages" ON private_messages FOR INSERT WITH CHECK (TRUE);
 
 -- notifications policies
+DROP POLICY IF EXISTS "Users can view own notifications" ON notifications;
 CREATE POLICY "Users can view own notifications" ON notifications FOR SELECT USING (TRUE);
+DROP POLICY IF EXISTS "System can create notifications" ON notifications;
 CREATE POLICY "System can create notifications" ON notifications FOR INSERT WITH CHECK (TRUE);
+DROP POLICY IF EXISTS "Users can update own notifications" ON notifications;
 CREATE POLICY "Users can update own notifications" ON notifications FOR UPDATE USING (TRUE);
 
 -- reports policies
+DROP POLICY IF EXISTS "Users can view own reports" ON reports;
 CREATE POLICY "Users can view own reports" ON reports FOR SELECT USING (TRUE);
+DROP POLICY IF EXISTS "Authenticated users can create reports" ON reports;
 CREATE POLICY "Authenticated users can create reports" ON reports FOR INSERT WITH CHECK (TRUE);
 
 -- =====================================================

@@ -1219,6 +1219,7 @@
             '#tx-tab-scripts{flex:1;display:none;flex-direction:column;gap:4px;overflow-y:auto;padding:10px;}',
             '#tx-tab-config{flex:1;display:none;flex-direction:column;gap:4px;overflow-y:auto;padding:10px;}',
             '#tx-tab-esp{flex:1;display:none;overflow:hidden;}',
+            '#tx-tab-market{flex:1;display:none;overflow:hidden;}',
             '#tx-tab-editor{flex:1;display:none;flex-direction:column;overflow:hidden;}',
             '#tx-editor-wrap{flex:1;display:flex;overflow:hidden;position:relative;}',
             '#tx-line-nums{width:36px;flex-shrink:0;background:' + T.bgEditor + '99;border-right:1px solid ' + T.outputBorder + ';color:' + T.colorTextMuted + ';font-family:Consolas,monospace;font-size:11px;line-height:1.5;padding:8px 4px 8px 0;text-align:right;overflow:hidden;user-select:none;}',
@@ -1451,6 +1452,7 @@
             '      <button class="tx-nav-btn" data-tab="scripts">SCRIPTS</button>',
             '      <button class="tx-nav-btn" data-tab="config">CONFIG</button>',
             '      <button class="tx-nav-btn" data-tab="esp">ESP VIEW</button>',
+            '      <button class="tx-nav-btn" data-tab="market">MARKETPLACE</button>',
             '      <div style="flex:1"></div>',
             '      <button class="tx-nav-btn" id="tx-btn-hook" style="border-color:#664">HOOK</button>',
             '      <button class="tx-nav-btn" onclick="window.open(\'https://everythingtt.github.io/TerriX-Client/Territorial.io.html\')">CLIENT</button>',
@@ -1473,6 +1475,7 @@
             '      <div id="tx-tab-scripts"></div>',
             '      <div id="tx-tab-config"></div>',
             '      <div id="tx-tab-esp"><canvas id="tx-esp-canvas" style="width:100%;height:100%;"></canvas></div>',
+            '      <div id="tx-tab-market"><iframe src="' + window.location.origin + '/marketplace.html" style="width:100%;height:100%;border:none;background:#000;"></iframe></div>',
             '    </div>',
             '  </div>',
             '  <div id="tx-footer">',
@@ -1497,9 +1500,9 @@
                 document.querySelectorAll('.tx-nav-btn[data-tab]').forEach(b => b.classList.remove('active'));
                 btn.classList.add('active');
                 const tab = btn.dataset.tab;
-                ['editor','chart','scripts','config','esp'].forEach(t => {
+                ['editor','chart','scripts','config','esp','market'].forEach(t => {
                     const el = document.getElementById('tx-tab-' + t);
-                    if (el) el.style.display = (t === tab) ? (t === 'editor' ? 'flex' : t === 'esp' ? 'block' : 'flex') : 'none';
+                    if (el) el.style.display = (t === tab) ? (t === 'editor' ? 'flex' : (t === 'esp' || t === 'market') ? 'block' : 'flex') : 'none';
                 });
                 persistGUIState();
             });

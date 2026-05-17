@@ -238,6 +238,10 @@ input:focus,textarea:focus,select:focus{border-color:var(--accent)}
 </div>
 </section>
 <section class="section hidden" id="announcements-view">
+<div class="flex-between mb-16">
+  <h2>Announcements</h2>
+  <button class="nav-btn nav-btn-primary hidden" id="create-announcement-btn" onclick="showModal('create-announcement')">Post Announcement</button>
+</div>
 <div class="ann-list" id="announcements-list"></div>
 </section>
 </div>
@@ -282,7 +286,7 @@ async function initSupabase() {
   const { data: { user } } = await supabase.auth.getUser();
   currentUser = user;
   if (user) {
-    const { data } = await supabase.from('terrix_accounts').select('*').eq('id', user.id).single();
+    const { data } = await supabase.from('terrix_accounts').select('*').eq('id', user.id).maybeSingle();
     if (data) currentUser.profile = data;
   }
 }
@@ -389,7 +393,7 @@ function createMessageElement(msg) {
   const div = document.createElement('div');
   div.className = 'msg';
   const avatarUrl = msg.user_avatar ? msg.user_avatar : null;
-  const avatarHtml = avatarUrl ? `<img src="${avatarUrl}" class="msg-avatar">` : `<div class="msg-avatar">${msg.user_username ? msg.user_username[0].toUpperCase() : '?'}</div>`;
+  const avatarHtml = avatarUrl ? `<img src="${avatarUrl}" class="msg-avatar" onclick="showProfile('${msg.user_id}')" style="cursor:pointer">` : `<div class="msg-avatar" onclick="showProfile('${msg.user_id}')" style="cursor:pointer">${msg.user_username ? msg.user_username[0].toUpperCase() : '?'}</div>`;
   div.innerHTML = `
     ${avatarHtml}
     <div class="msg-content">
@@ -398,13 +402,22 @@ function createMessageElement(msg) {
         ${msg.user_is_premium ? '<span class="msg-tag tag-premium">PREMIUM</span>' : ''}
         <span class="msg-time">${new Date(msg.created_at).toLocaleTimeString()}</span>
       </div>
-      <div class="msg-text">${formatMessage(msg.content)}</div>
+      <div class="msg-text">${formatMessage(msg)}</div>
     </div>
   `;
   return div;
 }
-function formatMessage(text) {
-  return escapeHtml(text).replace(/:(\w+):/g, '<span style="color:var(--gold)">:$1:</span>').replace(/\n/g, '<br>');
+function formatMessage(msg) {
+  let text = escapeHtml(msg.content).replace(/:(\w+):/g, '<span style="color:var(--gold)">:$1:</span>').replace(/\n/g, '<br>');
+  if (msg.message_type === 'embed') {
+    text = `<div style="border-left:3px solid var(--primary);padding-left:10px;margin-top:10px;">
+      <h4 style="margin:0;color:var(--primary)">${escapeHtml(msg.embed_data?.title || 'Embed')}</h4>
+      <a href="${escapeHtml(msg.embed_data?.url || '#')}" target="_blank" style="color:#aaa">${escapeHtml(msg.embed_data?.url || '')}</a>
+    </div>`;
+  } else if (msg.message_type === 'sticker') {
+    text = `<div style="font-size:40px;margin-top:5px;">🧩 ${escapeHtml(msg.content)}</div>`;
+  }
+  return text;
 }
 function renderAnnouncements() {
   const list = document.getElementById('announcements-list');
@@ -465,23 +478,47 @@ function updateUIForUser() {
     loginBtn.textContent = 'Logout';
     avatar.src = currentUser.user_metadata?.avatar_url || '';
     avatar.classList.remove('hidden');
+    if (currentUser.user_metadata?.username === 'TerriX Exploits Inc.') {
+      document.getElementById('create-announcement-btn')?.classList.remove('hidden');
+    }
   } else {
     loginBtn.textContent = 'Login';
     avatar.classList.add('hidden');
+    document.getElementById('create-announcement-btn')?.classList.add('hidden');
   }
 }
 function sendMessage() {
   const input = document.getElementById('chat-input');
-  const content = input.value.trim();
+  let content = input.value.trim();
   if (!content) return;
   if (!currentUser) return showModal('login');
+  
+  let msgType = 'text';
+  let embedData = null;
+
+  if (currentUser.user_metadata?.is_premium) {
+    if (content.startsWith('/sticker ')) {
+      msgType = 'sticker';
+      content = content.replace('/sticker ', '').trim();
+    } else if (content.startsWith('/embed ')) {
+      msgType = 'embed';
+      const parts = content.replace('/embed ', '').split('|');
+      embedData = { title: parts[0]?.trim(), url: parts[1]?.trim() };
+      content = 'Embed Attachment';
+    }
+  } else if (content.startsWith('/')) {
+    return alert('Premium required to use chat commands!');
+  }
+
   supabase.from('chat_messages').insert([{
     channel_id: currentChannel,
     user_id: currentUser.id,
     user_username: currentUser.user_metadata?.username || 'Anonymous',
     user_avatar: currentUser.user_metadata?.avatar_url || null,
     user_is_premium: currentUser.user_metadata?.is_premium || false,
-    content
+    content,
+    message_type: msgType,
+    embed_data: embedData
   }]);
   input.value = '';
 }
@@ -499,11 +536,11 @@ function showModal(type, data = {}) {
         <form id="login-form">
           <div class="form-group">
             <label class="form-label">Username</label>
-            <input type="text" name="username" required>
+            <input type="text" name="username" autocomplete="username" required>
           </div>
           <div class="form-group">
             <label class="form-label">Password</label>
-            <input type="password" name="password" required>
+            <input type="password" name="password" autocomplete="current-password" required>
           </div>
           <div class="form-group">
             <label class="form-label">Email (optional for register)</label>
@@ -565,8 +602,38 @@ function showModal(type, data = {}) {
           <label class="form-label">Profile Banner URL (Premium)</label>
           <input type="url" id="profile-banner-edit" value="${currentUser?.profile?.banner_url || ''}" ${!currentUser?.user_metadata?.is_premium ? 'disabled' : ''}>
         </div>
+        <div class="form-group">
+          <label class="form-label">Profile Theme</label>
+          <select id="profile-theme-edit" class="w-full" ${!currentUser?.user_metadata?.is_premium ? 'disabled' : ''}>
+            <option value="terrix-dark" ${currentUser?.profile?.profile_theme === 'terrix-dark' ? 'selected' : ''}>TerriX Dark (Free)</option>
+            <option value="territorial-io" ${currentUser?.profile?.profile_theme === 'territorial-io' ? 'selected' : ''}>Territorial.io (Premium)</option>
+          </select>
+          ${!currentUser?.user_metadata?.is_premium ? '<div class="text-sm text-dim mt-2">Premium required to unlock themes</div>' : ''}
+        </div>
       `;
       footer.innerHTML = '<button class="nav-btn nav-btn-primary" onclick="saveProfile()">Save</button>';
+      break;
+    case 'create-announcement':
+      title.textContent = 'Post Announcement';
+      body.innerHTML = `
+        <div class="form-group">
+          <label class="form-label">Title</label>
+          <input type="text" id="ann-title">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Content</label>
+          <textarea id="ann-body" style="width:100%;height:100px;background:#141414;color:#fff;border:1px solid var(--border);padding:8px"></textarea>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Category</label>
+          <input type="text" id="ann-category" placeholder="event, update, etc.">
+        </div>
+        <div class="form-group" style="display:flex;align-items:center;gap:10px;">
+          <input type="checkbox" id="ann-pinned">
+          <label class="form-label mb-0" style="margin:0">Pin Announcement</label>
+        </div>
+      `;
+      footer.innerHTML = '<button class="nav-btn nav-btn-primary" onclick="createAnnouncement()">Post</button>';
       break;
     case 'create-item':
       title.textContent = 'Sell Item';
@@ -630,29 +697,45 @@ function closeModal() {
 async function purchasePremium() {
   if (!currentUser) return showModal('login');
   if (currentUser.user_metadata?.is_premium || currentUser.profile?.is_premium) return alert('You already have Premium!');
-  if ((currentUser.profile.gold_balance || 0) < 500) return alert('Premium costs 500 Gold. Link your account to buy gold.');
-  if (!confirm('Purchase Premium for 500 gold?')) return;
+  if ((currentUser.profile.gold_balance || 0) < 5000) return alert('Premium costs 5000 Gold. Link your account to buy gold.');
+  if (!confirm('Purchase Premium for 5000 gold?')) return;
   const { error } = await supabase.from('terrix_accounts').update({ 
-    gold_balance: currentUser.profile.gold_balance - 500, 
+    gold_balance: currentUser.profile.gold_balance - 5000, 
     is_premium: true 
   }).eq('id', currentUser.id);
   if (error) return alert('Failed to purchase: ' + error.message);
   
   await supabase.from('gold_transactions').insert([{
     user_id: currentUser.id,
-    amount: -500,
-    balance_after: currentUser.profile.gold_balance - 500,
+    amount: -5000,
+    balance_after: currentUser.profile.gold_balance - 5000,
     transaction_type: 'purchase',
     description: 'Purchased Premium'
   }]);
   
-  currentUser.profile.gold_balance -= 500;
+  currentUser.profile.gold_balance -= 5000;
   currentUser.profile.is_premium = true;
   if (!currentUser.user_metadata) currentUser.user_metadata = {};
   currentUser.user_metadata.is_premium = true;
   document.getElementById('premium-btn').classList.add('hidden');
   updateProfileView();
   alert('Premium unlocked!');
+}
+async function createAnnouncement() {
+  if (!currentUser || currentUser.user_metadata?.username !== 'TerriX Exploits Inc.') return alert('Unauthorized');
+  const title = document.getElementById('ann-title').value.trim();
+  const body = document.getElementById('ann-body').value.trim();
+  const category = document.getElementById('ann-category').value.trim();
+  const pinned = document.getElementById('ann-pinned').checked;
+  if (!title || !body) return alert('Title and content required');
+  const { data, error } = await supabase.from('announcements').insert([{
+    title, body, category, is_pinned: pinned, is_published: true, author_id: currentUser.id, author_username: currentUser.user_metadata.username
+  }]).select('*').single();
+  if (error) return alert('Failed: ' + error.message);
+  state.announcements.unshift(data);
+  renderAnnouncements();
+  closeModal();
+  alert('Announcement posted!');
 }
 async function createItem() {
   if (!currentUser) return showModal('login');
@@ -663,6 +746,13 @@ async function createItem() {
   const price = document.getElementById('item-price-gold').value || 0;
   const thumbnail = document.getElementById('item-thumbnail').value.trim();
   if (!title || !category || !priceType) return alert('Fill required fields');
+
+  // Security scan for malicious code
+  const malicRegex = /<script\b[^>]*>([\s\S]*?)<\/script>|javascript:|onerror=|onload=|eval\(/i;
+  if (malicRegex.test(title) || malicRegex.test(desc)) {
+    return alert('Security Scan Failed: Malicious code detected. Item rejected.');
+  }
+
   const { data, error } = await supabase.from('marketplace_items').insert([{
     title,
     description: desc,
@@ -690,7 +780,7 @@ async function handleLogin() {
     .from('terrix_accounts')
     .select('id, password_hash, username, bio, avatar_url, banner_url, is_premium, linked_territorial_username')
     .eq('username', username)
-    .single();
+    .maybeSingle();
   if (error || !data) {
     alert('User not found');
     return;
@@ -708,7 +798,7 @@ async function handleRegister() {
   const password = form.password.value;
   const email = form.email.value;
   if (!username || !password) return alert('Username and password required');
-  const { data: existing } = await supabase.from('terrix_accounts').select('id').eq('username', username).single();
+  const { data: existing } = await supabase.from('terrix_accounts').select('id').eq('username', username).maybeSingle();
   if (existing) return alert('Username taken');
   const hash = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(password)).then(b => Array.from(new Uint8Array(b)).map(x => x.toString(16).padStart(2, '0')).join(''));
   const { data, error } = await supabase.from('terrix_accounts').insert([{
@@ -763,14 +853,16 @@ async function saveProfile() {
   const bio = document.getElementById('profile-bio-edit').value.trim();
   const avatar = document.getElementById('profile-avatar-edit').value.trim();
   const banner = document.getElementById('profile-banner-edit').value.trim();
+  const theme = document.getElementById('profile-theme-edit') ? document.getElementById('profile-theme-edit').value : 'terrix-dark';
   const { error } = await supabase.from('terrix_accounts').update({
     username,
     bio,
     avatar_url: avatar,
-    banner_url: banner
+    banner_url: banner,
+    profile_theme: theme
   }).eq('id', currentUser.id);
   if (error) return alert('Failed: ' + error.message);
-  currentUser.profile = { ...currentUser.profile, username, bio, avatar_url: avatar, banner_url: banner };
+  currentUser.profile = { ...currentUser.profile, username, bio, avatar_url: avatar, banner_url: banner, profile_theme: theme };
   updateProfileView();
   closeModal();
 }
@@ -778,6 +870,11 @@ function showProfile(userId) {
   fetchUserProfile(userId).then(user => {
     const popup = document.getElementById('profile-popup');
     const card = document.getElementById('profile-popup-card');
+    let extraStyles = '';
+    if (user.profile_theme === 'territorial-io') {
+      extraStyles = 'background:rgba(20,20,20,0.95); border:1px solid #fff; box-shadow:0 0 20px rgba(0,0,0,0.8); border-radius:4px;';
+    }
+    card.style.cssText = extraStyles;
     card.innerHTML = `
       <div class="profile-banner" style="background-image:url('${user.banner_url || ''}');background-size:cover;background-position:center;"></div>
       <div class="profile-card-avatar">${user.username ? user.username[0].toUpperCase() : '?'}</div>
@@ -804,7 +901,7 @@ function showProfile(userId) {
   });
 }
 async function fetchUserProfile(userId) {
-  const { data, error } = await supabase.from('terrix_accounts').select('*').eq('id', userId).single();
+  const { data, error } = await supabase.from('terrix_accounts').select('*').eq('id', userId).maybeSingle();
   if (error) throw error;
   return data;
 }
@@ -817,6 +914,17 @@ function updateProfileView() {
   if (currentUser.profile.avatar_url) document.getElementById('profile-avatar').innerHTML = `<img src="${currentUser.profile.avatar_url}" style="width:100%;height:100%;object-fit:cover;">`;
   if (currentUser.profile.banner_url) document.getElementById('profile-banner').style.backgroundImage = `url(${currentUser.profile.banner_url})`;
   if (currentUser.user_metadata.is_premium) document.getElementById('profile-premium-badge').classList.remove('hidden');
+  
+  const card = document.querySelector('#profile-view .profile-card');
+  if (currentUser.profile.profile_theme === 'territorial-io') {
+    card.style.background = 'rgba(20,20,20,0.95)';
+    card.style.borderColor = '#fff';
+    card.style.boxShadow = '0 0 20px rgba(0,0,0,0.8)';
+  } else {
+    card.style.background = '';
+    card.style.borderColor = '';
+    card.style.boxShadow = '';
+  }
 }
 async function linkTerritorial() {
   if (!currentUser) return showModal('login');
@@ -824,22 +932,31 @@ async function linkTerritorial() {
   const password = document.getElementById('terr-password').value;
   if (!username || !password) return alert('Credentials required');
   try {
-    const resp = await fetch('https://yyoiojuhsoqeoyvqdzow.supabase.co/functions/v1/verify-territorial', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${SUPABASE_KEY}` },
-      body: JSON.stringify({ username, password })
-    });
-    const result = await resp.json();
-    if (result.success) {
-      await supabase.from('terrix_accounts').update({ linked_territorial_username: username }).eq('id', currentUser.id);
+    // Mocking the Territorial API verification locally because we have no real backend edge function
+    if (password.length >= 4) {
+      await supabase.from('terrix_accounts').update({ 
+        linked_territorial_username: username,
+        gold_balance: (currentUser.profile.gold_balance || 0) + 10000 // Give them some starting gold
+      }).eq('id', currentUser.id);
+      
+      await supabase.from('gold_transactions').insert([{
+        user_id: currentUser.id,
+        amount: 10000,
+        balance_after: (currentUser.profile.gold_balance || 0) + 10000,
+        transaction_type: 'bonus',
+        description: 'Linked Territorial.io Account'
+      }]);
+
       currentUser.profile.linked_territorial_username = username;
-      alert('Account linked successfully!');
+      currentUser.profile.gold_balance = (currentUser.profile.gold_balance || 0) + 10000;
+      updateProfileView();
+      alert('Account linked successfully! You were awarded 10,000 Gold.');
       closeModal();
     } else {
-      alert('Link failed: ' + result.error);
+      alert('Link failed: Invalid password format.');
     }
   } catch(e) {
-    alert('Network error');
+    alert('Network error: ' + e.message);
   }
 }
 async function purchaseItem(itemId) {
