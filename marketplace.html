@@ -121,6 +121,19 @@ input:focus,textarea:focus,select:focus{border-color:var(--accent)}
 .chat-file-btn:hover{color:var(--accent2);border-color:var(--accent)}
 .chat-send{padding:10px 20px;border-radius:8px;background:var(--accent);color:#fff;font-weight:700;font-size:13px}
 .chat-send:hover{background:#4d5cff}
+.tx-video-player{position:relative;width:100%;max-width:500px;background:#000;border-radius:12px;overflow:hidden;margin-top:10px;border:1px solid var(--brd);user-select:none;aspect-ratio:16/9}
+.tx-video-element{width:100%;height:100%;display:block}
+.tx-video-controls{position:absolute;bottom:0;left:0;right:0;background:linear-gradient(transparent,rgba(0,0,0,0.9));padding:12px;display:flex;flex-direction:column;gap:8px;opacity:0;transition:opacity 0.3s;z-index:10}
+.tx-video-player:hover .tx-video-controls{opacity:1}
+.tx-video-progress-container{width:100%;height:4px;background:rgba(255,255,255,0.2);cursor:pointer;position:relative;border-radius:2px}
+.tx-video-progress-filled{height:100%;background:var(--accent);width:0%;border-radius:2px;transition:width 0.1s linear}
+.tx-video-main-controls{display:flex;align-items:center;justify-content:space-between;color:#fff;font-size:12px}
+.tx-video-left-controls,.tx-video-right-controls{display:flex;align-items:center;gap:12px}
+.tx-video-btn{background:none;border:none;color:#fff;cursor:pointer;padding:4px;display:flex;align-items:center;justify-content:center;transition:all 0.1s;font-size:16px}
+.tx-video-btn:hover{color:var(--accent2);transform:scale(1.1)}
+.tx-video-time{font-family:monospace;font-size:11px;color:#aaa}
+.tx-video-speed-badge{font-size:10px;background:rgba(255,255,255,0.15);padding:2px 6px;border-radius:4px;cursor:pointer;font-weight:700}
+.tx-video-speed-badge:hover{background:rgba(255,255,255,0.3)}
 .profile-popup{position:fixed;inset:0;background:rgba(0,0,0,0.6);z-index:300;display:none;align-items:center;justify-content:center;padding:24px}
 .profile-popup.open{display:flex}
 .profile-card{background:var(--surf);border:1px solid var(--brd);border-radius:16px;width:100%;max-width:400px;overflow:hidden;position:relative}
@@ -412,6 +425,7 @@ async function loadMessages(channelId) {
       container.appendChild(createMessageElement(msg));
     });
     container.scrollTop = container.scrollHeight;
+    initVideoPlayers(container);
   }
 
   if (chatSocket) supabase.removeChannel(chatSocket);
@@ -421,10 +435,94 @@ async function loadMessages(channelId) {
       const msg = payload.new;
       const ph = document.getElementById('no-messages-placeholder');
       if (ph) ph.remove();
-      container.appendChild(createMessageElement(msg));
+      const el = createMessageElement(msg);
+      container.appendChild(el);
       container.scrollTop = container.scrollHeight;
+      initVideoPlayers(el);
     })
     .subscribe();
+}
+
+function initVideoPlayers(container = document) {
+  const players = container.querySelectorAll('.tx-video-player:not(.initialized)');
+  players.forEach(player => {
+    player.classList.add('initialized');
+    const video = player.querySelector('.tx-video-element');
+    const playPauseBtn = player.querySelector('.play-pause-btn');
+    const progressContainer = player.querySelector('.tx-video-progress-container');
+    const progressFilled = player.querySelector('.tx-video-progress-filled');
+    const timeDisplay = player.querySelector('.tx-video-time');
+    const speedBtn = player.querySelector('.tx-video-speed-badge');
+    const pipBtn = player.querySelector('.pip-btn');
+    const fsBtn = player.querySelector('.fullscreen-btn');
+
+    const togglePlay = () => {
+      if (video.paused) {
+        video.play();
+        playPauseBtn.textContent = '⏸';
+      } else {
+        video.pause();
+        playPauseBtn.textContent = '▶';
+      }
+    };
+
+    video.addEventListener('click', togglePlay);
+    playPauseBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      togglePlay();
+    });
+
+    video.addEventListener('timeupdate', () => {
+      const progress = (video.currentTime / video.duration) * 100;
+      progressFilled.style.width = `${progress}%`;
+      const cur = formatDuration(video.currentTime);
+      const dur = formatDuration(video.duration || 0);
+      timeDisplay.textContent = `${cur} / ${dur}`;
+    });
+
+    progressContainer.addEventListener('click', (e) => {
+      const rect = progressContainer.getBoundingClientRect();
+      const pos = (e.clientX - rect.left) / rect.width;
+      video.currentTime = pos * video.duration;
+    });
+
+    const speeds = [1, 1.25, 1.5, 2, 0.5];
+    let speedIdx = 0;
+    speedBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      speedIdx = (speedIdx + 1) % speeds.length;
+      video.playbackRate = speeds[speedIdx];
+      speedBtn.textContent = speeds[speedIdx] + 'x';
+    });
+
+    if (document.pictureInPictureEnabled) {
+      pipBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        if (document.pictureInPictureElement) document.exitPictureInPicture();
+        else video.requestPictureInPicture();
+      });
+    } else {
+      pipBtn.style.display = 'none';
+    }
+
+    fsBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      if (document.fullscreenElement) document.exitFullscreen();
+      else player.requestFullscreen();
+    });
+
+    video.addEventListener('ended', () => {
+      playPauseBtn.textContent = '▶';
+      progressFilled.style.width = '0%';
+    });
+  });
+}
+
+function formatDuration(seconds) {
+  if (isNaN(seconds)) return '0:00';
+  const m = Math.floor(seconds / 60);
+  const s = Math.floor(seconds % 60);
+  return `${m}:${s.toString().padStart(2, '0')}`;
 }
 function createMessageElement(msg) {
   const div = document.createElement('div');
@@ -455,8 +553,30 @@ function formatMessage(msg) {
     text = `<div style="font-size:40px;margin-top:5px;">🧩 ${escapeHtml(msg.content)}</div>`;
   } else if (msg.message_type === 'file') {
     const isImg = /\.(jpg|jpeg|png|gif|webp)$/i.test(msg.content);
+    const isVid = /\.(mp4|webm|ogg|mov)$/i.test(msg.content);
     if (isImg) {
       text = `<div style="margin-top:8px;"><img src="${msg.content}" style="max-width:100%;max-height:300px;border-radius:8px;border:1px solid var(--brd)"></div>`;
+    } else if (isVid) {
+      text = `
+        <div class="tx-video-player" data-src="${msg.content}">
+          <video class="tx-video-element" src="${msg.content}" preload="metadata"></video>
+          <div class="tx-video-controls">
+            <div class="tx-video-progress-container">
+              <div class="tx-video-progress-filled"></div>
+            </div>
+            <div class="tx-video-main-controls">
+              <div class="tx-video-left-controls">
+                <button class="tx-video-btn play-pause-btn">▶</button>
+                <div class="tx-video-time">0:00 / 0:00</div>
+              </div>
+              <div class="tx-video-right-controls">
+                <div class="tx-video-speed-badge">1x</div>
+                <button class="tx-video-btn pip-btn">📺</button>
+                <button class="tx-video-btn fullscreen-btn">⛶</button>
+              </div>
+            </div>
+          </div>
+        </div>`;
     } else {
       const fileName = msg.content.split('/').pop().split('_').slice(1).join('_') || 'File';
       text = `<div class="msg-embed">
