@@ -1322,7 +1322,31 @@ function showModal(type, data = {}) {
           ` : ''}
         </div>
       `;
-      footer.innerHTML = hasPurchased ? '' : `<button class="nav-btn nav-btn-primary" onclick="purchaseItem('${item.id}')">${item.price_type === 'key' ? 'Request Key' : 'Purchase for ' + (item.price_type === 'free' ? 'FREE' : item.price + ' Gold')}</button>`;
+      footer.innerHTML = (hasPurchased ? '' : `<button class="nav-btn nav-btn-primary" onclick="purchaseItem('${item.id}')">${item.price_type === 'key' ? 'Request Key' : 'Purchase for ' + (item.price_type === 'free' ? 'FREE' : item.price + ' Gold')}</button>`) 
+        + (item.author_id === currentUser?.id ? `<button class="nav-btn nav-btn-ghost" onclick="editItem('${item.id}')">Edit Item</button>` : '');
+      break;
+    case 'edit-item':
+      const editItem = data.item;
+      title.textContent = 'Edit Item';
+      body.innerHTML = `
+        <div class="form-group">
+          <label class="form-label">Title</label>
+          <input type="text" id="edit-item-title" value="${escapeHtml(editItem.title)}" maxlength="128">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Description</label>
+          <textarea id="edit-item-desc" rows="3" maxlength="2000" oninput="updateCounter('edit-item-desc', 2000)">${escapeHtml(editItem.description)}</textarea>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Thumbnail</label>
+          <input type="url" id="edit-item-thumbnail" value="${escapeHtml(editItem.thumbnail || '')}" placeholder="Thumbnail URL">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Item Content / Info</label>
+          <textarea id="edit-item-content" rows="3" maxlength="50000" oninput="updateCounter('edit-item-content', 50000)">${escapeHtml(editItem.item_content || '')}</textarea>
+        </div>
+      `;
+      footer.innerHTML = '<button class="nav-btn nav-btn-primary" onclick="saveItemChanges(\'' + editItem.id + '\')">Save Changes</button>';
       break;
   }
 }
@@ -1818,6 +1842,33 @@ async function generateKey(itemId) {
     alert('Key generated! You can now access the item. Key: ' + secretKey);
     await loadState();
     openItemDetails(itemId);
+}
+
+function editItem(itemId) {
+  const item = state.items.find(i => i.id === itemId);
+  if (!item) return;
+  showModal('edit-item', { item });
+}
+
+async function saveItemChanges(itemId) {
+  if (!currentUser) return;
+  const title = document.getElementById('edit-item-title').value.trim();
+  const description = document.getElementById('edit-item-desc').value.trim();
+  const thumbnail = document.getElementById('edit-item-thumbnail').value.trim();
+  const item_content = document.getElementById('edit-item-content').value.trim();
+  
+  if (!title || !description) return alert('Title and description required');
+  
+  const { error } = await supabase.from('marketplace_items').update({
+    title, description, thumbnail, item_content
+  }).eq('id', itemId).eq('author_id', currentUser.id);
+
+  if (error) return alert('Failed to save changes: ' + error.message);
+  
+  await loadState();
+  renderItems();
+  closeModal();
+  alert('Changes saved!');
 }
 
 async function linkTerritorial() {
