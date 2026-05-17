@@ -1338,6 +1338,27 @@ function showModal(type, data = {}) {
           <textarea id="edit-item-desc" rows="3" maxlength="2000" oninput="updateCounter('edit-item-desc', 2000)">${escapeHtml(editItem.description)}</textarea>
         </div>
         <div class="form-group">
+          <label class="form-label">Category</label>
+          <select id="edit-item-category">
+            <option value="exploits" ${editItem.category === 'exploits' ? 'selected' : ''}>Exploits/Scripts</option>
+            <option value="accounts" ${editItem.category === 'accounts' ? 'selected' : ''}>Territorial.io Accounts</option>
+            <option value="discord" ${editItem.category === 'discord' ? 'selected' : ''}>Discord Nitro</option>
+            <option value="boosts" ${editItem.category === 'boosts' ? 'selected' : ''}>Server Boosts</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Price Type</label>
+          <select id="edit-item-price-type" onchange="document.getElementById('edit-item-price-gold-section').classList.toggle('hidden', this.value !== 'gold')">
+            <option value="free" ${editItem.price_type === 'free' ? 'selected' : ''}>Free</option>
+            <option value="gold" ${editItem.price_type === 'gold' ? 'selected' : ''}>Paid (Gold)</option>
+            <option value="key" ${editItem.price_type === 'key' ? 'selected' : ''}>Key System</option>
+          </select>
+        </div>
+        <div class="form-group ${editItem.price_type !== 'gold' ? 'hidden' : ''}" id="edit-item-price-gold-section">
+          <label class="form-label">Price (Gold)</label>
+          <input type="number" id="edit-item-price-gold" min="0" value="${editItem.price || 0}">
+        </div>
+        <div class="form-group">
           <label class="form-label">Thumbnail</label>
           <input type="url" id="edit-item-thumbnail" value="${escapeHtml(editItem.thumbnail || '')}" placeholder="Thumbnail URL">
         </div>
@@ -1854,13 +1875,16 @@ async function saveItemChanges(itemId) {
   if (!currentUser) return;
   const title = document.getElementById('edit-item-title').value.trim();
   const description = document.getElementById('edit-item-desc').value.trim();
+  const category = document.getElementById('edit-item-category').value;
+  const price_type = document.getElementById('edit-item-price-type').value;
+  const price = document.getElementById('edit-item-price-gold').value || 0;
   const thumbnail = document.getElementById('edit-item-thumbnail').value.trim();
   const item_content = document.getElementById('edit-item-content').value.trim();
   
   if (!title || !description) return alert('Title and description required');
   
   const { error } = await supabase.from('marketplace_items').update({
-    title, description, thumbnail, item_content
+    title, description, thumbnail, item_content, category, price_type, price: price_type === 'gold' ? parseInt(price) : 0
   }).eq('id', itemId).eq('author_id', currentUser.id);
 
   if (error) return alert('Failed to save changes: ' + error.message);
