@@ -134,6 +134,18 @@ input:focus,textarea:focus,select:focus{border-color:var(--accent)}
 .tx-video-time{font-family:monospace;font-size:11px;color:#aaa}
 .tx-video-speed-badge{font-size:10px;background:rgba(255,255,255,0.15);padding:2px 6px;border-radius:4px;cursor:pointer;font-weight:700}
 .tx-video-speed-badge:hover{background:rgba(255,255,255,0.3)}
+
+/* Image Viewer Lightbox */
+.tx-lightbox{position:fixed;inset:0;background:rgba(0,0,0,0.9);z-index:9999;display:none;align-items:center;justify-content:center;padding:40px;cursor:zoom-out;animation:tx-fade-in 0.2s ease}
+.tx-lightbox.open{display:flex}
+.tx-lightbox-content{max-width:95%;max-height:95%;object-fit:contain;border-radius:8px;box-shadow:0 20px 50px rgba(0,0,0,0.5);cursor:default;transform:scale(0.9);transition:transform 0.3s cubic-bezier(0.18, 0.89, 0.32, 1.28)}
+.tx-lightbox.open .tx-lightbox-content{transform:scale(1)}
+.tx-lightbox-close{position:absolute;top:20px;right:20px;font-size:32px;color:#fff;cursor:pointer;background:none;border:none;width:48px;height:48px;display:flex;align-items:center;justify-content:center;border-radius:50%;transition:background 0.2s}
+.tx-lightbox-close:hover{background:rgba(255,255,255,0.1)}
+.tx-lightbox-dl{position:absolute;bottom:20px;left:50%;transform:translateX(-50%);background:var(--accent);color:#fff;padding:10px 24px;border-radius:30px;font-weight:700;text-decoration:none;font-size:14px;box-shadow:0 10px 20px rgba(0,0,0,0.3)}
+.tx-chat-img:hover{transform:scale(1.02);filter:brightness(1.1)}
+
+@keyframes tx-fade-in { from { opacity: 0; } to { opacity: 1; } }
 .profile-popup{position:fixed;inset:0;background:rgba(0,0,0,0.6);z-index:300;display:none;align-items:center;justify-content:center;padding:24px}
 .profile-popup.open{display:flex}
 .profile-card{background:var(--surf);border:1px solid var(--brd);border-radius:16px;width:100%;max-width:400px;overflow:hidden;position:relative}
@@ -275,6 +287,12 @@ input:focus,textarea:focus,select:focus{border-color:var(--accent)}
 </div>
 <div class="profile-popup" id="profile-popup">
 <div class="profile-card" id="profile-popup-card"></div>
+</div>
+
+<div class="tx-lightbox" id="tx-lightbox" onclick="closeLightbox()">
+  <button class="tx-lightbox-close" onclick="closeLightbox()">×</button>
+  <img src="" class="tx-lightbox-content" id="tx-lightbox-img" onclick="event.stopPropagation()">
+  <a href="" target="_blank" class="tx-lightbox-dl" id="tx-lightbox-dl" onclick="event.stopPropagation()">Download Original</a>
 </div>
 <script>
 const SUPABASE_URL = 'https://yyoiojuhsoqeoyvqdzow.supabase.co';
@@ -524,6 +542,23 @@ function formatDuration(seconds) {
   const s = Math.floor(seconds % 60);
   return `${m}:${s.toString().padStart(2, '0')}`;
 }
+
+function openLightbox(url) {
+  const lb = document.getElementById('tx-lightbox');
+  const img = document.getElementById('tx-lightbox-img');
+  const dl = document.getElementById('tx-lightbox-dl');
+  img.src = url;
+  dl.href = url;
+  lb.classList.add('open');
+  document.body.style.overflow = 'hidden';
+}
+
+function closeLightbox() {
+  const lb = document.getElementById('tx-lightbox');
+  lb.classList.remove('open');
+  document.body.style.overflow = '';
+}
+
 function createMessageElement(msg) {
   const div = document.createElement('div');
   div.className = 'msg';
@@ -555,7 +590,7 @@ function formatMessage(msg) {
     const isImg = /\.(jpg|jpeg|png|gif|webp)$/i.test(msg.content);
     const isVid = /\.(mp4|webm|ogg|mov)$/i.test(msg.content);
     if (isImg) {
-      text = `<div style="margin-top:8px;"><img src="${msg.content}" style="max-width:100%;max-height:300px;border-radius:8px;border:1px solid var(--brd)"></div>`;
+      text = `<div style="margin-top:8px;"><img src="${msg.content}" class="tx-chat-img" onclick="openLightbox('${msg.content}')" style="max-width:100%;max-height:300px;border-radius:8px;border:1px solid var(--brd);cursor:zoom-in;transition:transform 0.2s"></div>`;
     } else if (isVid) {
       text = `
         <div class="tx-video-player" data-src="${msg.content}">
@@ -639,6 +674,9 @@ function setupEventListeners() {
   document.getElementById('chat-send').addEventListener('click', sendMessage);
   document.getElementById('chat-input').addEventListener('keypress', (e) => {
     if (e.key === 'Enter') sendMessage();
+  });
+  window.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') closeLightbox();
   });
   document.getElementById('chat-file-input').addEventListener('change', async (e) => {
     const file = e.target.files[0];
