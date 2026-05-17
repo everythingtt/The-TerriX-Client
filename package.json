@@ -5,6 +5,7 @@
     "build": "echo 'Done'"
   },
   "dependencies": {
+    "node-fetch": "^2.7.0",
     "pg": "^8.20.0"
   }
 }

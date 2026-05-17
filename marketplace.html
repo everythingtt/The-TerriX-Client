@@ -500,6 +500,14 @@ function sendMessage() {
   if (!content) return;
   if (!currentUser) return showModal('login');
   
+  // Restriction: Announcements channel
+  const channel = state.channels.find(c => c.id === currentChannel);
+  if (channel && (channel.is_announcement || channel.name === 'announcements')) {
+    if (currentUser?.user_metadata?.username !== 'TerriX Exploits Inc.') {
+        return alert('Only TerriX Exploits Inc. can post in the announcements channel.');
+    }
+  }
+
   let msgType = 'text';
   let embedData = null;
 
@@ -953,31 +961,42 @@ async function linkTerritorial() {
   const password = document.getElementById('terr-password').value;
   if (!username || !password) return alert('Credentials required');
   try {
-    // Mocking the Territorial API verification locally because we have no real backend edge function
-    if (password.length >= 4) {
-      await supabase.from('terrix_accounts').update({ 
+    const res = await fetch("https://territorial.io/api/account/get", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ 
+        account_name: username, 
+        password: password, 
+        target_account_name: username 
+      })
+    });
+    const data = await res.json();
+    if (data.status === 'ok') {
+      const gold = Math.floor(data.account_data.gold_cents / 100);
+      const { error } = await supabase.from('terrix_accounts').update({
         linked_territorial_username: username,
-        gold_balance: (currentUser.profile.gold_balance || 0) + 10000 // Give them some starting gold
+        gold_balance: gold
       }).eq('id', currentUser.id);
+      if (error) throw error;
       
       await supabase.from('gold_transactions').insert([{
         user_id: currentUser.id,
-        amount: 10000,
-        balance_after: (currentUser.profile.gold_balance || 0) + 10000,
-        transaction_type: 'bonus',
-        description: 'Linked Territorial.io Account'
+        amount: gold - (currentUser.profile.gold_balance || 0),
+        balance_after: gold,
+        transaction_type: 'deposit',
+        description: 'Linked & Synced Territorial.io Account'
       }]);
 
       currentUser.profile.linked_territorial_username = username;
-      currentUser.profile.gold_balance = (currentUser.profile.gold_balance || 0) + 10000;
+      currentUser.profile.gold_balance = gold;
       updateProfileView();
-      alert('Account linked successfully! You were awarded 10,000 Gold.');
+      alert(`Account linked successfully! Synced ${gold} Gold.`);
       closeModal();
     } else {
-      alert('Link failed: Invalid password format.');
+      alert('Link failed: ' + (data.error || 'Invalid API password or credentials.'));
     }
   } catch(e) {
-    alert('Network error: ' + e.message);
+    alert('Error connecting to Territorial.io API: ' + e.message);
   }
 }
 async function purchaseItem(itemId) {

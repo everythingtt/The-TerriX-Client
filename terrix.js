@@ -44,6 +44,7 @@
         hooked: false,
         loops: {},
         gui: null,
+        auth: { user: null, profile: null, purchased: [], supabase: null },
         config: {
             godbot: {
                 enabled: false,
@@ -1442,9 +1443,12 @@
         wrapper.innerHTML = [
             '<div id="tx-toggle">TERRIX v3.0</div>',
             '<div id="tx-gui">',
-            '  <div id="tx-header">',
+            '  <div id="tx-header" style="justify-content:space-between; display:flex; align-items:center;">',
             '    <span>TERRIX <span class="tx-ver">v3.0 ULTIMATE</span></span>',
-            '    <span id="tx-close">✕</span>',
+            '    <div style="display:flex; gap:10px; align-items:center;">',
+            '      <div id="tx-header-user" style="font-size:10px; color:#aaa; cursor:pointer;">Guest</div>',
+            '      <span id="tx-close">✕</span>',
+            '    </div>',
             '  </div>',
             '  <div id="tx-body">',
             '    <div id="tx-sidebar">',
@@ -1479,13 +1483,24 @@
             '      <div id="tx-tab-market" style="background:#111; padding:10px; flex-direction:column; gap:8px; overflow-y:auto; display:none;">',
             '        <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid #333; padding-bottom:8px;">',
             '          <h3 style="margin:0; font-size:14px; color:#fff;">TerriX Marketplace</h3>',
-            '          <button class="tx-btn" id="tx-market-auth-btn" style="background:#4a4; font-size:10px;">Login</button>',
+            '          <div id="tx-market-auth-status" style="font-size:10px; color:#888;">Not Logged In</div>',
             '        </div>',
             '        <div style="display:flex; gap:4px;">',
-            '          <input type="text" id="tx-market-search" placeholder="Search scripts..." style="flex:1; background:#222; border:1px solid #444; color:#fff; padding:4px;">',
+            '          <input type="text" id="tx-market-search" placeholder="Search scripts..." style="flex:1; background:#222; border:1px solid #444; color:#fff; padding:4px; font-size:11px;">',
             '        </div>',
-            '        <div id="tx-market-grid" style="display:grid; grid-template-columns:1fr; gap:8px;">',
+            '        <div id="tx-market-grid" style="display:grid; grid-template-columns:1fr; gap:8px; max-height:220px; overflow-y:auto; padding-right:4px;">',
             '          <div style="color:#888; text-align:center; padding:20px;">Loading scripts...</div>',
+            '        </div>',
+            '        <div id="tx-market-chat" style="display:flex; flex-direction:column; gap:6px; border-top:1px solid #333; margin-top:10px; padding-top:10px; height:200px;">',
+            '          <div style="display:flex; justify-content:space-between; align-items:center;">',
+            '            <span style="font-size:11px; font-weight:bold; color:#aaa;">Global Chat</span>',
+            '            <select id="tx-chat-channel-sel" style="background:#222; border:1px solid #444; color:#fff; font-size:9px; padding:1px;"></select>',
+            '          </div>',
+            '          <div id="tx-chat-msgs" style="flex:1; background:#0a0a0a; border:1px solid #222; overflow-y:auto; padding:6px; font-size:11px; color:#eee; display:flex; flex-direction:column; gap:4px;"></div>',
+            '          <div style="display:flex; gap:2px;">',
+            '            <input type="text" id="tx-chat-input" placeholder="Say something..." style="flex:1; background:#222; border:1px solid #444; color:#fff; padding:4px; font-size:10px;">',
+            '            <button id="tx-chat-send" style="background:#4a4; border:none; color:#fff; padding:0 8px; cursor:pointer; font-size:10px;">Send</button>',
+            '          </div>',
             '        </div>',
             '      </div>',
             '    </div>',
@@ -1757,135 +1772,184 @@
         const SUPABASE_KEY = 'sb_publishable_R3otBb20oWkvfY2IX1r_0A_OsOx0W4G';
         
         const marketGrid = document.getElementById('tx-market-grid');
-        const loginBtn = document.getElementById('tx-market-auth-btn');
         const searchInput = document.getElementById('tx-market-search');
+        const headerUser = document.getElementById('tx-header-user');
+        const authStatus = document.getElementById('tx-market-auth-status');
         
-        let marketState = { items: [], user: null, purchased: [] };
-        let supabaseClient = null;
+        const chatMsgs = document.getElementById('tx-chat-msgs');
+        const chatInput = document.getElementById('tx-chat-input');
+        const chatSend = document.getElementById('tx-chat-send');
+        const chanSel = document.getElementById('tx-chat-channel-sel');
+
+        let currentChannelId = null;
+        let chatSubscription = null;
+        let marketChannels = [];
 
         try {
             const sm = await import('https://cdn.jsdelivr.net/npm/@supabase/supabase-js/+esm');
-            supabaseClient = sm.createClient(SUPABASE_URL, SUPABASE_KEY);
-            const { data } = await supabaseClient.auth.getUser();
-            marketState.user = data?.user || null;
+            TERRIX.auth.supabase = sm.createClient(SUPABASE_URL, SUPABASE_KEY);
             
-            if (marketState.user) {
-                loginBtn.textContent = marketState.user.user_metadata?.username || 'Logout';
-                const { data: pur } = await supabaseClient.from('purchases').select('item_id').eq('buyer_id', marketState.user.id);
-                marketState.purchased = pur ? pur.map(p => p.item_id) : [];
+            // Restore session
+            const saved = localStorage.getItem('tx_user');
+            if (saved) {
+                const { u, p } = JSON.parse(saved);
+                performLogin(u, p, true);
             }
             
-            loginBtn.addEventListener('click', async () => {
-                if (marketState.user) {
-                    await supabaseClient.auth.signOut();
-                    marketState.user = null;
-                    marketState.purchased = [];
-                    loginBtn.textContent = 'Login';
-                    renderMarket();
+            headerUser.addEventListener('click', () => {
+                if (TERRIX.auth.user) {
+                    if (confirm('Logout from TerriX Account?')) logoutUser();
                 } else {
-                    const promptUser = prompt('Enter your TerriX username:');
-                    const promptPass = prompt('Enter your TerriX password:');
-                    if (promptUser && promptPass) {
-                        const { data: acc } = await supabaseClient.from('terrix_accounts').select('id, password_hash, username').eq('username', promptUser).maybeSingle();
-                        if (!acc) return alert('User not found');
-                        const hash = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(promptPass)).then(b => Array.from(new Uint8Array(b)).map(x => x.toString(16).padStart(2, '0')).join(''));
-                        if (hash !== acc.password_hash) return alert('Invalid password');
-                        
-                        // Fake auth session for purely fetching user context on client side (since we don't have proper auth token from basic hash check)
-                        marketState.user = { id: acc.id, user_metadata: { username: acc.username } };
-                        loginBtn.textContent = acc.username;
-                        
-                        const { data: pur } = await supabaseClient.from('purchases').select('item_id').eq('buyer_id', marketState.user.id);
-                        marketState.purchased = pur ? pur.map(p => p.item_id) : [];
-                        renderMarket();
-                    }
+                    const u = prompt('TerriX Username:');
+                    const p = prompt('TerriX Password:');
+                    if (u && p) performLogin(u, p);
                 }
             });
+
+            async function performLogin(username, password, silent = false) {
+                const { data: acc, error } = await TERRIX.auth.supabase.from('terrix_accounts').select('*').eq('username', username).maybeSingle();
+                if (!acc) return !silent && alert('User not found');
+                const hash = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(password)).then(b => Array.from(new Uint8Array(b)).map(x => x.toString(16).padStart(2, '0')).join(''));
+                if (hash !== acc.password_hash) return !silent && alert('Invalid password');
+                
+                TERRIX.auth.user = { id: acc.id, user_metadata: { username: acc.username } };
+                TERRIX.auth.profile = acc;
+                localStorage.setItem('tx_user', JSON.stringify({ u: username, p: password }));
+                
+                headerUser.textContent = acc.username;
+                headerUser.style.color = '#4a4';
+                authStatus.textContent = `Logged in as ${acc.username}`;
+                
+                const { data: pur } = await TERRIX.auth.supabase.from('purchases').select('item_id').eq('buyer_id', TERRIX.auth.user.id);
+                TERRIX.auth.purchased = pur ? pur.map(p => p.item_id) : [];
+                
+                renderMarket();
+                loadChat();
+                if (!silent) toast(`Welcome, ${acc.username}!`);
+            }
+
+            function logoutUser() {
+                TERRIX.auth.user = null;
+                TERRIX.auth.profile = null;
+                TERRIX.auth.purchased = [];
+                localStorage.removeItem('tx_user');
+                headerUser.textContent = 'Guest';
+                headerUser.style.color = '#aaa';
+                authStatus.textContent = 'Not Logged In';
+                renderMarket();
+                loadChat();
+                toast('Logged out.');
+            }
+
+            async function loadChat() {
+                if (!TERRIX.auth.supabase) return;
+                const { data } = await TERRIX.auth.supabase.from('chat_channels').select('*').order('name');
+                marketChannels = data || [];
+                chanSel.innerHTML = marketChannels.map(c => `<option value="${c.id}">${c.name}</option>`).join('');
+                if (marketChannels.length > 0) joinChannel(marketChannels[0].id);
+            }
+
+            async function joinChannel(id) {
+                currentChannelId = id;
+                if (chatSubscription) TERRIX.auth.supabase.removeChannel(chatSubscription);
+                chatMsgs.innerHTML = '<div style="color:#444;text-align:center;padding-top:20px;">Loading history...</div>';
+                
+                const { data } = await TERRIX.auth.supabase.from('chat_messages').select('*').eq('channel_id', id).order('created_at', { ascending: true }).limit(50);
+                chatMsgs.innerHTML = '';
+                (data || []).forEach(appendChatMsg);
+                
+                chatSubscription = TERRIX.auth.supabase.channel(`public:chat_messages:channel_id=eq.${id}`)
+                    .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'chat_messages', filter: `channel_id=eq.${id}` }, p => appendChatMsg(p.new))
+                    .subscribe();
+            }
+
+            function appendChatMsg(msg) {
+                const div = document.createElement('div');
+                const isAdmin = msg.user_username === 'TerriX Exploits Inc.';
+                div.innerHTML = `<span style="color:${isAdmin?'#f55':'#4a4'}; font-weight:bold;">${msg.user_username}:</span> <span style="color:#ccc;">${msg.content.replace(/</g,'&lt;')}</span>`;
+                chatMsgs.appendChild(div);
+                chatMsgs.scrollTop = chatMsgs.scrollHeight;
+            }
+
+            chatSend.onclick = async () => {
+                const content = chatInput.value.trim();
+                if (!content || !TERRIX.auth.user) return !TERRIX.auth.user && alert('Login to chat');
+                const chan = marketChannels.find(c => c.id === currentChannelId);
+                if (chan && (chan.is_announcement || chan.name === 'announcements')) {
+                    if (TERRIX.auth.user.user_metadata.username !== 'TerriX Exploits Inc.') return alert('Only TerriX Exploits Inc. can post here.');
+                }
+                await TERRIX.auth.supabase.from('chat_messages').insert([{
+                    channel_id: currentChannelId,
+                    user_id: TERRIX.auth.user.id,
+                    user_username: TERRIX.auth.user.user_metadata.username,
+                    content: content
+                }]);
+                chatInput.value = '';
+            };
+
+            chanSel.onchange = (e) => joinChannel(e.target.value);
+            chatInput.onkeypress = (e) => e.key === 'Enter' && chatSend.click();
             
             await fetchMarket();
         } catch(e) {
-            marketGrid.innerHTML = '<div style="color:red;padding:10px;">Failed to connect to TerriX Marketplace.</div>';
+            marketGrid.innerHTML = '<div style="color:red;padding:10px;">Marketplace Error.</div>';
             Logger.error('Marketplace init failed:', e);
         }
         
         searchInput.addEventListener('input', renderMarket);
         
         async function fetchMarket() {
-            if (!supabaseClient) return;
-            const { data } = await supabaseClient.from('marketplace_items').select('*').eq('is_approved', true).eq('category', 'exploits').order('created_at', { ascending: false });
-            marketState.items = data || [];
+            if (!TERRIX.auth.supabase) return;
+            const { data } = await TERRIX.auth.supabase.from('marketplace_items').select('*').eq('is_approved', true).eq('category', 'exploits').order('created_at', { ascending: false });
+            TERRIX.items = data || [];
             renderMarket();
         }
         
         function renderMarket() {
             if (!marketGrid) return;
             const query = (searchInput.value || '').toLowerCase();
-            const filtered = marketState.items.filter(i => i.title.toLowerCase().includes(query) || (i.description||'').toLowerCase().includes(query));
+            const filtered = (TERRIX.items || []).filter(i => i.title.toLowerCase().includes(query) || (i.description||'').toLowerCase().includes(query));
             
-            if (filtered.length === 0) {
-                marketGrid.innerHTML = '<div style="color:#666;padding:10px;">No exploits found.</div>';
-                return;
-            }
+            if (filtered.length === 0) return marketGrid.innerHTML = '<div style="color:#444;padding:20px;text-align:center;font-size:10px;">No items found.</div>';
             
             marketGrid.innerHTML = '';
             filtered.forEach(item => {
                 const div = document.createElement('div');
-                div.style.cssText = 'background:#1a1a1a; border:1px solid #333; padding:10px; border-radius:4px; display:flex; flex-direction:column; gap:6px;';
-                
-                const hasPurchased = item.price_type === 'free' || marketState.purchased.includes(item.id) || item.author_id === marketState.user?.id;
-                
+                div.style.cssText = 'background:#1a1a1a; border:1px solid #333; padding:8px; border-radius:4px; display:flex; flex-direction:column; gap:4px;';
+                const hasPurchased = item.price_type === 'free' || TERRIX.auth.purchased.includes(item.id) || item.author_id === TERRIX.auth.user?.id;
                 div.innerHTML = `
                     <div style="display:flex; justify-content:space-between; align-items:flex-start;">
-                        <h4 style="margin:0; color:#fff; font-size:13px; font-weight:bold;">${item.title.replace(/</g,'&lt;')}</h4>
-                        <span style="background:${item.price_type==='free'?'#4a4':'#a82'}; color:#fff; font-size:9px; padding:2px 4px; border-radius:2px; font-weight:bold;">${item.price_type==='free'?'FREE':item.price_type==='gold'?item.price+' GOLD':'KEY'}</span>
+                        <h4 style="margin:0; color:#eee; font-size:11px;">${item.title.replace(/</g,'&lt;')}</h4>
+                        <span style="color:${item.price_type==='free'?'#4a4':'#a82'}; font-size:8px; font-weight:bold;">${item.price_type==='free'?'FREE':item.price_type==='gold'?item.price+'G':'KEY'}</span>
                     </div>
-                    <div style="font-size:11px; color:#aaa; line-height:1.4; max-height:45px; overflow:hidden;">${(item.description||'').replace(/</g,'&lt;')}</div>
-                    <div style="display:flex; justify-content:space-between; align-items:center; margin-top:4px;">
-                        <span style="font-size:10px; color:#666;">by ${item.author_username}</span>
+                    <div style="font-size:9px; color:#888;">${(item.description||'').slice(0, 50)}...</div>
+                    <div style="display:flex; justify-content:space-between; align-items:center; margin-top:2px;">
+                        <span style="font-size:8px; color:#555;">by ${item.author_username}</span>
                         ${hasPurchased 
-                            ? `<button class="tx-btn tx-market-load-btn" data-content="${encodeURIComponent(item.item_content||'')}" style="background:#262; padding:4px 8px; font-size:10px;">Load Script</button>` 
-                            : `<button class="tx-btn tx-market-buy-btn" data-id="${item.id}" style="background:#555; padding:4px 8px; font-size:10px;" ${!marketState.user ? 'disabled' : ''}>${marketState.user ? 'Buy & Load' : 'Login to Buy'}</button>`
+                            ? `<button class="tx-btn tx-market-load-btn" data-content="${encodeURIComponent(item.item_content||'')}" style="background:#262; padding:2px 6px; font-size:9px; border:none; cursor:pointer;">LOAD</button>` 
+                            : `<button class="tx-btn tx-market-buy-btn" data-id="${item.id}" style="background:#444; padding:2px 6px; font-size:9px; border:none; cursor:pointer;" ${!TERRIX.auth.user ? 'disabled' : ''}>BUY</button>`
                         }
                     </div>
                 `;
-                
                 marketGrid.appendChild(div);
             });
             
-            // Add listeners to new buttons
-            marketGrid.querySelectorAll('.tx-market-load-btn').forEach(btn => {
-                btn.addEventListener('click', () => {
-                    const code = decodeURIComponent(btn.dataset.content);
-                    if (code) {
-                        document.getElementById('tx-editor').value = code;
-                        document.querySelector('.tx-nav-btn[data-tab="editor"]').click();
-                        toast('Script loaded to editor!');
-                    } else {
-                        alert('No script content provided for this item.');
-                    }
-                });
+            marketGrid.querySelectorAll('.tx-market-load-btn').forEach(btn => btn.onclick = () => {
+                document.getElementById('tx-editor').value = decodeURIComponent(btn.dataset.content);
+                document.querySelector('.tx-nav-btn[data-tab="editor"]').click();
+                toast('Script loaded.');
             });
             
-            marketGrid.querySelectorAll('.tx-market-buy-btn').forEach(btn => {
-                btn.addEventListener('click', async () => {
-                    if (!marketState.user) return alert('Please login first');
-                    const item = marketState.items.find(i => i.id === btn.dataset.id);
-                    if (!item) return;
-                    if (item.price_type === 'key') return alert('Please open the client marketplace to request keys.');
-                    
-                    if (confirm(`Purchase ${item.title} for ${item.price} Gold?`)) {
-                        const { data: u, error: uErr } = await supabaseClient.from('terrix_accounts').select('gold_balance').eq('id', marketState.user.id).single();
-                        if (uErr) return alert('Failed to check balance');
-                        if (u.gold_balance < item.price) return alert('Insufficient gold! Buy gold in main marketplace.');
-                        
-                        const { error } = await supabaseClient.rpc('purchase_item', { p_item_id: item.id, p_buyer_id: marketState.user.id });
-                        if (error) return alert('Purchase failed: ' + error.message);
-                        
-                        marketState.purchased.push(item.id);
-                        alert('Purchase successful!');
-                        renderMarket();
-                    }
-                });
+            marketGrid.querySelectorAll('.tx-market-buy-btn').forEach(btn => btn.onclick = async () => {
+                if (!TERRIX.auth.user) return;
+                const item = TERRIX.items.find(i => i.id === btn.dataset.id);
+                if (item && confirm(`Buy ${item.title} for ${item.price} Gold?`)) {
+                    const { error } = await TERRIX.auth.supabase.rpc('purchase_item', { p_item_id: item.id, p_buyer_id: TERRIX.auth.user.id });
+                    if (error) return alert('Failed: ' + error.message);
+                    TERRIX.auth.purchased.push(item.id);
+                    renderMarket();
+                    alert('Success!');
+                }
             });
         }
     }
