@@ -110,8 +110,18 @@ input:focus,textarea:focus,select:focus{border-color:var(--accent)}
 .msg-author.premium{color:var(--gold)}
 .msg-tag{font-size:9px;font-weight:700;padding:1px 5px;border-radius:3px;background:rgba(58,71,255,0.15);color:var(--accent2)}
 .tag-premium{background:linear-gradient(135deg,rgba(255,215,0,0.2),rgba(255,145,0,0.2));color:var(--gold)}
-.msg-time{font-size:11px;color:var(--muted)}
+.msg-time{font-size:11px;color:var(--muted);margin-right:8px}
+.msg-actions{display:flex;gap:8px;opacity:0;transition:opacity 0.2s}
+.msg:hover .msg-actions{opacity:1}
+.msg-action-btn{background:none;border:none;color:var(--dim);cursor:pointer;font-size:10px;padding:2px 4px;border-radius:4px;transition:all 0.2s}
+.msg-action-btn:hover{color:var(--accent2);background:rgba(255,255,255,0.05)}
+.msg-action-btn.delete:hover{color:var(--red);background:rgba(255,82,82,0.1)}
 .msg-text{font-size:13px;color:var(--txt);line-height:1.5;word-break:break-word}
+.msg.editing .msg-text{display:none}
+.msg-edit-box{display:none;width:100%;background:var(--surf2);border:1px solid var(--accent);border-radius:8px;padding:8px;margin-top:8px}
+.msg.editing .msg-edit-box{display:block}
+.msg-edit-input{width:100%;background:none;border:none;color:var(--txt);font-size:13px;resize:vertical;min-height:40px;outline:none;font-family:inherit;line-height:1.4}
+.msg-edit-actions{display:flex;justify-content:flex-end;gap:8px;margin-top:8px}
 .msg-text p { margin-bottom: 8px; }
 .msg-text p:last-child { margin-bottom: 0; }
 .msg-text pre { background: var(--surf2); padding: 12px; border-radius: 8px; overflow-x: auto; margin: 8px 0; border: 1px solid var(--brd); }
@@ -123,9 +133,9 @@ input:focus,textarea:focus,select:focus{border-color:var(--accent)}
 .msg-embed{background:var(--surf2);border:1px solid var(--brd);border-radius:8px;padding:12px;margin-top:4px;border-left:3px solid var(--accent)}
 .msg-embed-title{font-size:13px;font-weight:700;margin-bottom:4px}
 .msg-embed-desc{font-size:12px;color:var(--dim)}
-.chat-input{display:flex;gap:8px;padding:14px 20px;border-top:1px solid var(--brd);background:var(--surf2)}
-.chat-input input{flex:1;padding:10px 14px;border-radius:8px;font-size:13px;background:var(--bg);border:1px solid var(--brd)}
-.chat-input input:focus{border-color:var(--accent)}
+.chat-input{display:flex;gap:8px;padding:12px 16px;border-top:1px solid var(--brd);background:var(--surf2);align-items:flex-end}
+.chat-input textarea{flex:1;padding:10px 16px;border-radius:20px;font-size:13px;background:var(--bg);border:1px solid var(--brd);color:var(--txt);outline:none;resize:none;max-height:120px;min-height:40px;overflow-y:auto;font-family:inherit;line-height:1.4;transition:all 0.2s}
+.chat-input textarea:focus{border-color:var(--accent);box-shadow:0 0 15px rgba(58,71,255,0.1)}
 .chat-file-btn{width:38px;height:38px;display:flex;align-items:center;justify-content:center;background:var(--surf);border:1px solid var(--brd);border-radius:8px;cursor:pointer;color:var(--dim);transition:all .15s}
 .chat-file-btn:hover{color:var(--accent2);border-color:var(--accent)}
 .chat-send{padding:10px 20px;border-radius:8px;background:var(--accent);color:#fff;font-weight:700;font-size:13px}
@@ -257,7 +267,9 @@ input:focus,textarea:focus,select:focus{border-color:var(--accent)}
 <div class="chat-input">
 <label class="chat-file-btn" for="chat-file-input">📎</label>
 <input type="file" id="chat-file-input" class="hidden">
-<input type="text" id="chat-input" placeholder="Type a message... (Premium: /emoji, /sticker, /embed, /file)">
+    <div class="chat-input-wrapper" style="flex:1;display:flex;flex-direction:column">
+      <textarea id="chat-input" placeholder="Type a message... (/sticker, /embed, /file)" rows="1"></textarea>
+    </div>
 <button class="chat-send" id="chat-send">Send</button>
 </div>
 </div>
@@ -504,6 +516,19 @@ async function loadMessages(channelId) {
       container.scrollTop = container.scrollHeight;
       initVideoPlayers(el);
     })
+    .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'chat_messages', filter: `channel_id=eq.${channelId}` }, payload => {
+      const msg = payload.new;
+      const oldEl = document.getElementById(`msg-${msg.id}`);
+      if (oldEl) {
+        const newEl = createMessageElement(msg);
+        oldEl.replaceWith(newEl);
+        initVideoPlayers(newEl);
+      }
+    })
+    .on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'chat_messages', filter: `channel_id=eq.${channelId}` }, payload => {
+      const oldEl = document.getElementById(`msg-${payload.old.id}`);
+      if (oldEl) oldEl.remove();
+    })
     .subscribe();
 }
 
@@ -685,8 +710,20 @@ function closeLightbox() {
 function createMessageElement(msg) {
   const div = document.createElement('div');
   div.className = 'msg';
+  div.id = `msg-${msg.id}`;
+  div.dataset.id = msg.id;
+  
+  const isOwner = currentUser && currentUser.id === msg.user_id;
+  const actionsHtml = isOwner ? `
+    <div class="msg-actions">
+      <button class="msg-action-btn" onclick="startEdit('${msg.id}')">Edit</button>
+      <button class="msg-action-btn delete" onclick="deleteMessage('${msg.id}')">Delete</button>
+    </div>
+  ` : '';
+
   const avatarUrl = msg.user_avatar ? msg.user_avatar : null;
   const avatarHtml = avatarUrl ? `<img src="${avatarUrl}" class="msg-avatar" onclick="showProfile('${msg.user_id}')" style="cursor:pointer">` : `<div class="msg-avatar" onclick="showProfile('${msg.user_id}')" style="cursor:pointer">${msg.user_username ? msg.user_username[0].toUpperCase() : '?'}</div>`;
+  
   div.innerHTML = `
     ${avatarHtml}
     <div class="msg-content">
@@ -694,8 +731,16 @@ function createMessageElement(msg) {
         <span class="msg-author${msg.user_is_premium ? ' premium' : ''}" onclick="showProfile('${msg.user_id}')">${escapeHtml(msg.user_username)}</span>
         ${msg.user_is_premium ? '<span class="msg-tag tag-premium">PREMIUM</span>' : ''}
         <span class="msg-time">${new Date(msg.created_at).toLocaleTimeString()}</span>
+        ${actionsHtml}
       </div>
       <div class="msg-text">${formatMessage(msg)}</div>
+      <div class="msg-edit-box">
+        <textarea class="msg-edit-input">${msg.content}</textarea>
+        <div class="msg-edit-actions">
+          <button class="nav-btn" onclick="cancelEdit('${msg.id}')" style="padding:4px 12px;font-size:11px;">Cancel</button>
+          <button class="nav-btn nav-btn-primary" onclick="saveEdit('${msg.id}')" style="padding:4px 12px;font-size:11px;">Save</button>
+        </div>
+      </div>
     </div>
   `;
   return div;
@@ -829,8 +874,16 @@ function setupEventListeners() {
     }
   });
   document.getElementById('chat-send').addEventListener('click', sendMessage);
-  document.getElementById('chat-input').addEventListener('keypress', (e) => {
-    if (e.key === 'Enter') sendMessage();
+  const chatInput = document.getElementById('chat-input');
+  chatInput.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      sendMessage();
+    }
+  });
+  chatInput.addEventListener('input', () => {
+    chatInput.style.height = 'auto';
+    chatInput.style.height = (chatInput.scrollHeight) + 'px';
   });
   window.addEventListener('keydown', (e) => {
     if (e.key === 'Escape') closeLightbox();
@@ -880,6 +933,38 @@ function updateUIForUser() {
     document.getElementById('create-announcement-btn')?.classList.add('hidden');
   }
 }
+function startEdit(id) {
+  const el = document.getElementById(`msg-${id}`);
+  if (el) el.classList.add('editing');
+}
+function cancelEdit(id) {
+  const el = document.getElementById(`msg-${id}`);
+  if (el) el.classList.remove('editing');
+}
+async function saveEdit(id) {
+  const el = document.getElementById(`msg-${id}`);
+  if (!el) return;
+  const input = el.querySelector('.msg-edit-input');
+  const content = input.value.trim();
+  if (!content) return;
+  
+  try {
+    const { error } = await supabase.from('chat_messages').update({ content }).eq('id', id);
+    if (error) throw error;
+    el.classList.remove('editing');
+  } catch (err) {
+    alert('Failed to update message: ' + err.message);
+  }
+}
+async function deleteMessage(id) {
+  if (!confirm('Are you sure you want to delete this message?')) return;
+  try {
+    const { error } = await supabase.from('chat_messages').delete().eq('id', id);
+    if (error) throw error;
+  } catch (err) {
+    alert('Failed to delete message: ' + err.message);
+  }
+}
 async function sendMessage() {
   const input = document.getElementById('chat-input');
   let content = input.value.trim();
@@ -924,6 +1009,7 @@ async function sendMessage() {
     }]);
     if (error) throw error;
     input.value = '';
+    input.style.height = '40px';
   } catch (err) {
     alert('Failed to send message: ' + err.message);
   }
