@@ -299,6 +299,13 @@ async function loadState() {
   state.items = itemsRes.data || [];
   state.channels = channelsRes.data || [];
   state.announcements = annRes.data || [];
+  
+  if (currentUser) {
+    const { data } = await supabase.from('purchases').select('item_id').eq('buyer_id', currentUser.id);
+    state.purchases = data ? data.map(i => i.item_id) : [];
+  } else {
+    state.purchases = [];
+  }
 }
 function renderItems() {
   const grid = document.getElementById('item-grid');
