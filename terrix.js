@@ -5,7 +5,7 @@
 // @description  Ultimate Strategy Suite. Complete rewrite with neighbor-based AI, ESP, minimap, and multi-tab support.
 // @author       Terri Exploits Inc.
 // @match        *://territorial.io/*
-// @match        *://everythingtt.github.io/TerriX-Client/*
+// @match        *://everythingtt.github.io/The-TerriX-Client/*
 // @grant        GM_setValue
 // @grant        GM_getValue
 // @grant        GM_deleteValue
@@ -1178,7 +1178,7 @@
             '    <div style="color:' + T.colorTextRed + ';font-size:16px;font-weight:bold;">Game Hook Not Detected</div>',
             '    <div style="color:' + T.colorTextDim + ';font-size:12px;text-align:center;max-width:400px;">',
             '      This page does not have the TerriX hook. You must use the TerriX Client to run TerriX Executor.<br><br>',
-            '      <a href="https://everythingtt.github.io/TerriX-Client/Territorial.io.html" style="color:' + T.colorBorderBtnPrimary + ';" target="_blank">Open TerriX Client →</a>',
+            '      <a href="https://everythingtt.github.io/The-TerriX-Client/Territorial.io.html" style="color:' + T.colorBorderBtnPrimary + ';" target="_blank">Open TerriX Client →</a>',
             '    </div>',
             '    <button class="tx-btn tx-btn-primary" style="background:' + T.bgBtnPrimary + ';border-color:' + T.colorBorderBtnPrimary + ';color:' + T.btnTextPrimary + ';" onclick="location.reload()">Retry</button>',
             '  </div>',
@@ -1455,7 +1455,7 @@
             '      <button class="tx-nav-btn" data-tab="market">MARKETPLACE</button>',
             '      <div style="flex:1"></div>',
             '      <button class="tx-nav-btn" id="tx-btn-hook" style="border-color:#664">HOOK</button>',
-            '      <button class="tx-nav-btn" onclick="window.open(\'https://everythingtt.github.io/TerriX-Client/Territorial.io.html\')">CLIENT</button>',
+            '      <button class="tx-nav-btn" onclick="window.open(\'https://everythingtt.github.io/The-TerriX-Client/Territorial.io.html\')">CLIENT</button>',
             '    </div>',
             '    <div id="tx-main">',
             '      <div id="tx-tab-editor">',

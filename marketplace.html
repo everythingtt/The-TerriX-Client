@@ -669,7 +669,11 @@ function showModal(type, data = {}) {
         </div>
         <div class="form-group">
           <label class="form-label">Thumbnail URL (optional)</label>
-          <input type="url" id="item-thumbnail">
+          <input type="url" id="item-thumbnail" placeholder="Defaults to category image">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Item Content / Info</label>
+          <textarea id="item-content" rows="3" placeholder="Script code, download link, or item details..."></textarea>
         </div>
       `;
       footer.innerHTML = '<button class="nav-btn nav-btn-primary" onclick="createItem()">List Item</button>';
@@ -744,12 +748,21 @@ async function createItem() {
   const category = document.getElementById('item-category').value;
   const priceType = document.getElementById('item-price-type').value;
   const price = document.getElementById('item-price-gold').value || 0;
-  const thumbnail = document.getElementById('item-thumbnail').value.trim();
+  let thumbnail = document.getElementById('item-thumbnail').value.trim();
+  const itemContent = document.getElementById('item-content').value.trim();
   if (!title || !category || !priceType) return alert('Fill required fields');
+
+  if (!thumbnail) {
+    if (category === 'exploits') thumbnail = 'https://picsum.photos/seed/exploits/400/200';
+    else if (category === 'accounts') thumbnail = 'https://picsum.photos/seed/accounts/400/200';
+    else if (category === 'discord') thumbnail = 'https://picsum.photos/seed/discord/400/200';
+    else if (category === 'boosts') thumbnail = 'https://picsum.photos/seed/boosts/400/200';
+    else thumbnail = 'https://picsum.photos/seed/other/400/200';
+  }
 
   // Security scan for malicious code
   const malicRegex = /<script\b[^>]*>([\s\S]*?)<\/script>|javascript:|onerror=|onload=|eval\(/i;
-  if (malicRegex.test(title) || malicRegex.test(desc)) {
+  if (malicRegex.test(title) || malicRegex.test(desc) || malicRegex.test(itemContent)) {
     return alert('Security Scan Failed: Malicious code detected. Item rejected.');
   }
 
@@ -759,7 +772,8 @@ async function createItem() {
     category,
     price_type: priceType,
     price: priceType === 'gold' ? parseInt(price) : 0,
-    thumbnail: thumbnail || null,
+    thumbnail: thumbnail,
+    item_content: itemContent,
     author_id: currentUser.id,
     author_username: currentUser.profile?.username || currentUser.user_metadata?.username || 'Anonymous',
     is_approved: true
@@ -964,7 +978,7 @@ async function purchaseItem(itemId) {
   const item = state.items.find(i => i.id === itemId);
   if (!item) return;
   if (item.price_type === 'free') {
-    alert('Free items are automatically delivered (or contact seller).');
+    alert('Accessing free item:\n\n' + (item.item_content || 'No content provided by author. Contact them.'));
     return;
   }
   if (item.price_type === 'gold') {
@@ -972,7 +986,7 @@ async function purchaseItem(itemId) {
     if (!confirm(`Purchase ${item.title} for ${item.price} gold?`)) return;
     const { error } = await supabase.rpc('purchase_item', { p_item_id: itemId, p_buyer_id: currentUser.id });
     if (error) return alert('Purchase failed: ' + error.message);
-    alert('Purchase successful! Check your email/deliverables.');
+    alert('Purchase successful! Item details:\n\n' + (item.item_content || 'No content attached. Contact seller.'));
     loadState();
     renderItems();
   } else if (item.price_type === 'key') {
