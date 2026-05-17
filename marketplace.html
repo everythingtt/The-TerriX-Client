@@ -277,7 +277,8 @@ document.addEventListener('DOMContentLoaded', async () => {
   if (currentUser) updateUIForUser();
 });
 async function initSupabase() {
-  supabase = window.supabase || (await import('https://unpkg.com/@supabase/supabase-js@2')).createClient(SUPABASE_URL, SUPABASE_KEY);
+  const supabaseModule = window.supabase || await import('https://cdn.jsdelivr.net/npm/@supabase/supabase-js/+esm');
+  supabase = supabaseModule.createClient ? supabaseModule.createClient(SUPABASE_URL, SUPABASE_KEY) : window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
   const { data: { user } } = await supabase.auth.getUser();
   currentUser = user;
   if (user) {
@@ -287,7 +288,7 @@ async function initSupabase() {
 }
 async function loadState() {
   const [itemsRes, channelsRes, annRes] = await Promise.all([
-    supabase.from('marketplace_items').select('*').eq('approved', true).order('created_at', { ascending: false }),
+    supabase.from('marketplace_items').select('*').eq('is_approved', true).order('created_at', { ascending: false }),
     supabase.from('chat_channels').select('*').order('is_private', { ascending: true }),
     supabase.from('announcements').select('*').eq('published', true).order('pinned', { ascending: false }).order('created_at', { ascending: false })
   ]);
