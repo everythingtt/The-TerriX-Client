@@ -1772,7 +1772,16 @@
             // Restore session
             const saved = localStorage.getItem('tx_user');
             if (saved) {
-                const { u, p } = JSON.parse(saved);
+                const { u, p, profile } = JSON.parse(saved);
+                if (profile) {
+                    const ln = profile.linked_territorial_username || 'None';
+                    headerUser.textContent = `${profile.username} (${ln})`;
+                    headerUser.style.color = '#4a4';
+                    authStatus.textContent = `User: ${profile.username} | Gold: ${profile.gold_balance}G | Linked: ${ln}`;
+                    TERRIX.auth.user = { id: profile.id, user_metadata: { username: profile.username } };
+                    TERRIX.auth.profile = profile;
+                    renderMarket();
+                }
                 performLogin(u, p, true);
             }
             
@@ -1794,11 +1803,12 @@
                 
                 TERRIX.auth.user = { id: acc.id, user_metadata: { username: acc.username } };
                 TERRIX.auth.profile = acc;
-                localStorage.setItem('tx_user', JSON.stringify({ u: username, p: password }));
+                localStorage.setItem('tx_user', JSON.stringify({ u: username, p: password, profile: acc }));
                 
-                headerUser.textContent = acc.username;
+                const linkedName = acc.linked_territorial_username || 'None';
+                headerUser.textContent = `${acc.username} (${linkedName})`;
                 headerUser.style.color = '#4a4';
-                authStatus.textContent = `Logged in as ${acc.username}`;
+                authStatus.textContent = `User: ${acc.username} | Gold: ${acc.gold_balance}G | Linked: ${linkedName}`;
                 
                 const { data: pur } = await TERRIX.auth.supabase.from('purchases').select('item_id').eq('buyer_id', TERRIX.auth.user.id);
                 TERRIX.auth.purchased = pur ? pur.map(p => p.item_id) : [];

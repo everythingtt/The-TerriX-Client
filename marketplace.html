@@ -287,7 +287,11 @@ async function initSupabase() {
   currentUser = user;
   if (user) {
     const { data } = await supabase.from('terrix_accounts').select('*').eq('id', user.id).maybeSingle();
-    if (data) currentUser.profile = data;
+    if (data) {
+      currentUser.profile = data;
+      updateUIForUser();
+      updateProfileView();
+    }
   }
 }
 async function loadState() {
@@ -939,6 +943,7 @@ function updateProfileView() {
   document.getElementById('profile-username').textContent = currentUser.profile.username;
   document.getElementById('profile-bio').textContent = currentUser.profile.bio || 'No bio set';
   document.getElementById('profile-gold').textContent = currentUser.profile.gold_balance || 0;
+  document.getElementById('profile-linked').textContent = currentUser.profile.linked_territorial_username || 'None';
   document.getElementById('profile-avatar').textContent = currentUser.profile.avatar_url ? '' : (currentUser.profile.username ? currentUser.profile.username[0].toUpperCase() : '?');
   if (currentUser.profile.avatar_url) document.getElementById('profile-avatar').innerHTML = `<img src="${currentUser.profile.avatar_url}" style="width:100%;height:100%;object-fit:cover;">`;
   if (currentUser.profile.banner_url) document.getElementById('profile-banner').style.backgroundImage = `url(${currentUser.profile.banner_url})`;
