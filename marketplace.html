@@ -290,7 +290,7 @@ async function loadState() {
   const [itemsRes, channelsRes, annRes] = await Promise.all([
     supabase.from('marketplace_items').select('*').eq('is_approved', true).order('created_at', { ascending: false }),
     supabase.from('chat_channels').select('*').order('is_private', { ascending: true }),
-    supabase.from('announcements').select('*').eq('published', true).order('pinned', { ascending: false }).order('created_at', { ascending: false })
+    supabase.from('announcements').select('*').eq('is_published', true).order('is_pinned', { ascending: false }).order('created_at', { ascending: false })
   ]);
   state.items = itemsRes.data || [];
   state.channels = channelsRes.data || [];
@@ -861,11 +861,6 @@ async function purchaseItem(itemId) {
   } else if (item.price_type === 'key') {
     alert('Contact seller to request a key. This will open a chat thread.');
   }
-}
-function showModal(type, data) {
-  const overlay = document.getElementById('modal-overlay');
-  if (overlay.classList.contains('open')) closeModal();
-  setTimeout(() => openModal(type, data), 10);
 }
 function escapeHtml(str) {
   const div = document.createElement('div');
