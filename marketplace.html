@@ -1043,6 +1043,7 @@ function showModal(type, data = {}) {
       footer.innerHTML = '<button class="nav-btn nav-btn-primary" onclick="handleLogin()">Login</button><button class="nav-btn nav-btn-ghost" onclick="handleRegister()">Register</button>';
       break;
     case 'create-channel':
+      const isAdmin = currentUser?.user_metadata?.username === 'TerriX Exploits Inc.';
       title.textContent = 'Create Channel';
       body.innerHTML = `
         <div class="form-group">
@@ -1051,10 +1052,11 @@ function showModal(type, data = {}) {
         </div>
         <div class="form-group">
           <label class="form-label">
-            <input type="checkbox" id="new-channel-private"> Private (password required)
+            <input type="checkbox" id="new-channel-private" ${!isAdmin ? 'checked disabled' : ''} onchange="document.getElementById('new-channel-password-group').classList.toggle('hidden', !this.checked)"> Private (password required)
           </label>
+          ${!isAdmin ? '<div class="text-xs text-gold mt-1">Regular users can only create private channels.</div>' : ''}
         </div>
-        <div class="form-group hidden" id="new-channel-password-group">
+        <div class="form-group ${!isAdmin ? '' : 'hidden'}" id="new-channel-password-group">
           <label class="form-label">Password</label>
           <input type="password" id="new-channel-password">
         </div>
@@ -1348,10 +1350,21 @@ async function handleRegister() {
 }
 async function createChannel() {
   if (!currentUser) return showModal('login');
+  const isAdmin = currentUser.user_metadata?.username === 'TerriX Exploits Inc.';
   const name = document.getElementById('new-channel-name').value.trim();
-  const isPrivate = document.getElementById('new-channel-private').checked;
+  let isPrivate = document.getElementById('new-channel-private').checked;
   const password = document.getElementById('new-channel-password').value;
+  
   if (!name) return alert('Channel name required');
+  
+  // Enforce server-side rules in client code for UX
+  if (!isAdmin) {
+    isPrivate = true; // Force private
+    if (!password) return alert('Password is required for user-created channels');
+  } else {
+    if (isPrivate && !password) return alert('Password is required for private channels');
+  }
+
   const { data, error } = await supabase.from('chat_channels').insert([{
     name,
     created_by: currentUser.id,
