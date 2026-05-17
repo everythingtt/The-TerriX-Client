@@ -735,6 +735,14 @@ function fixSupabaseUrl(url) {
   if (url.includes('/storage/v1/object/terrix/')) {
     return url.replace('/storage/v1/object/terrix/', '/storage/v1/object/public/TerriX%20Bucket/');
   }
+  // Fix missing /public/ in TerriX Bucket URLs
+  if (url.includes('/storage/v1/object/TerriX%20Bucket/') && !url.includes('/storage/v1/object/public/TerriX%20Bucket/')) {
+    return url.replace('/storage/v1/object/TerriX%20Bucket/', '/storage/v1/object/public/TerriX%20Bucket/');
+  }
+  // Ensure TerriX Bucket is encoded correctly in the URL
+  if (url.includes('/storage/v1/object/public/TerriX Bucket/')) {
+    return url.replace('/storage/v1/object/public/TerriX Bucket/', '/storage/v1/object/public/TerriX%20Bucket/');
+  }
   return url;
 }
 function renderAnnouncements() {
@@ -1286,7 +1294,8 @@ async function uploadFile(file, path = 'TerriX Bucket') {
         throw error;
     }
     const { data: { publicUrl } } = supabase.storage.from('TerriX Bucket').getPublicUrl(data.path);
-    return publicUrl;
+    // Safety check: sometimes the SDK returns a URL missing the /public/ part if accessed too quickly or if bucket config is weird
+    return fixSupabaseUrl(publicUrl);
 }
 
 async function handleProfileUpload(input, targetId) {

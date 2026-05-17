@@ -547,3 +547,13 @@ ON CONFLICT DO NOTHING;
 GRANT ALL ON ALL TABLES IN SCHEMA public TO anon, authenticated, service_role;
 GRANT ALL ON ALL SEQUENCES IN SCHEMA public TO anon, authenticated, service_role;
 GRANT EXECUTE ON ALL FUNCTIONS IN SCHEMA public TO anon, authenticated, service_role;
+
+-- =====================================================
+-- 12. STORAGE POLICIES (TerriX Bucket)
+-- =====================================================
+INSERT INTO storage.buckets (id, name, public) VALUES ('TerriX Bucket', 'TerriX Bucket', true) ON CONFLICT (id) DO UPDATE SET public = true;
+CREATE POLICY "Public Read Access" ON storage.objects FOR SELECT USING (bucket_id = 'TerriX Bucket');
+CREATE POLICY "Authenticated Upload Access" ON storage.objects FOR INSERT WITH CHECK (bucket_id = 'TerriX Bucket');
+CREATE POLICY "Authenticated Update Access" ON storage.objects FOR UPDATE USING (bucket_id = 'TerriX Bucket');
+CREATE POLICY "Authenticated Delete Access" ON storage.objects FOR DELETE USING (bucket_id = 'TerriX Bucket');
+
