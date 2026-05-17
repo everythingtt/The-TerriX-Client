@@ -1472,6 +1472,7 @@
             '          <button class="tx-btn tx-btn-sm" id="tx-btn-format" title="Format code">FORMAT</button>',
             '          <button class="tx-btn tx-btn-sm" id="tx-btn-clear-editor" title="Clear editor">CLEAR</button>',
             '          <button class="tx-btn tx-btn-sm" id="tx-btn-snippet" title="Insert snippet">SNIPPET</button>',
+            '          <label class="tx-btn tx-btn-sm" style="display:inline-flex;align-items:center;cursor:pointer;margin:0;">UPLOAD<input type="file" id="tx-btn-upload-script" style="display:none;"></label>',
             '          <span id="tx-cursor-pos">Ln 1, Col 1</span>',
             '        </div>',
             '        <div id="tx-code-output"></div>',
@@ -1620,6 +1621,19 @@
             updateLineNums();
             txOutput.innerHTML = '';
             persistGUIState();
+        });
+
+        document.getElementById('tx-btn-upload-script').addEventListener('change', (e) => {
+            const file = e.target.files[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = (re) => {
+                txEditor.value = re.target.result;
+                updateLineNums();
+                persistGUIState();
+                toast('Script loaded: ' + file.name);
+            };
+            reader.readAsText(file);
         });
 
         document.getElementById('tx-btn-format').addEventListener('click', () => {

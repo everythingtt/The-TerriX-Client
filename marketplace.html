@@ -117,6 +117,8 @@ input:focus,textarea:focus,select:focus{border-color:var(--accent)}
 .chat-input{display:flex;gap:8px;padding:14px 20px;border-top:1px solid var(--brd);background:var(--surf2)}
 .chat-input input{flex:1;padding:10px 14px;border-radius:8px;font-size:13px;background:var(--bg);border:1px solid var(--brd)}
 .chat-input input:focus{border-color:var(--accent)}
+.chat-file-btn{width:38px;height:38px;display:flex;align-items:center;justify-content:center;background:var(--surf);border:1px solid var(--brd);border-radius:8px;cursor:pointer;color:var(--dim);transition:all .15s}
+.chat-file-btn:hover{color:var(--accent2);border-color:var(--accent)}
 .chat-send{padding:10px 20px;border-radius:8px;background:var(--accent);color:#fff;font-weight:700;font-size:13px}
 .chat-send:hover{background:#4d5cff}
 .profile-popup{position:fixed;inset:0;background:rgba(0,0,0,0.6);z-index:300;display:none;align-items:center;justify-content:center;padding:24px}
@@ -204,6 +206,8 @@ input:focus,textarea:focus,select:focus{border-color:var(--accent)}
 <div class="chat-header" id="chat-header"># general</div>
 <div class="chat-messages" id="chat-messages"></div>
 <div class="chat-input">
+<label class="chat-file-btn" for="chat-file-input">📎</label>
+<input type="file" id="chat-file-input" class="hidden">
 <input type="text" id="chat-input" placeholder="Type a message... (Premium: /emoji, /sticker, /embed, /file)">
 <button class="chat-send" id="chat-send">Send</button>
 </div>
@@ -449,6 +453,18 @@ function formatMessage(msg) {
     </div>`;
   } else if (msg.message_type === 'sticker') {
     text = `<div style="font-size:40px;margin-top:5px;">🧩 ${escapeHtml(msg.content)}</div>`;
+  } else if (msg.message_type === 'file') {
+    const isImg = /\.(jpg|jpeg|png|gif|webp)$/i.test(msg.content);
+    if (isImg) {
+      text = `<div style="margin-top:8px;"><img src="${msg.content}" style="max-width:100%;max-height:300px;border-radius:8px;border:1px solid var(--brd)"></div>`;
+    } else {
+      const fileName = msg.content.split('/').pop().split('_').slice(1).join('_') || 'File';
+      text = `<div class="msg-embed">
+        <div class="msg-embed-title">📁 Attached File</div>
+        <div class="msg-embed-desc">${escapeHtml(fileName)}</div>
+        <a href="${msg.content}" target="_blank" class="nav-btn nav-btn-primary mt-8" style="display:inline-block;padding:4px 12px;font-size:11px;">Download</a>
+      </div>`;
+    }
   }
   return text;
 }
@@ -503,6 +519,32 @@ function setupEventListeners() {
   document.getElementById('chat-send').addEventListener('click', sendMessage);
   document.getElementById('chat-input').addEventListener('keypress', (e) => {
     if (e.key === 'Enter') sendMessage();
+  });
+  document.getElementById('chat-file-input').addEventListener('change', async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    if (!currentUser) {
+      alert('Login to upload files');
+      return;
+    }
+    try {
+      const btn = document.querySelector('label[for="chat-file-input"]');
+      btn.textContent = '⏳';
+      const url = await uploadFile(file);
+      await supabase.from('chat_messages').insert([{
+        channel_id: currentChannel,
+        user_id: currentUser.id,
+        user_username: currentUser.user_metadata?.username || 'Anonymous',
+        user_avatar: currentUser.user_metadata?.avatar_url || null,
+        user_is_premium: currentUser.user_metadata?.is_premium || false,
+        content: url,
+        message_type: 'file'
+      }]);
+      btn.textContent = '📎';
+    } catch (err) {
+      alert('Upload failed: ' + err.message);
+      document.querySelector('label[for="chat-file-input"]').textContent = '📎';
+    }
   });
 }
 function updateUIForUser() {
@@ -642,12 +684,24 @@ function showModal(type, data = {}) {
           <textarea id="profile-bio-edit" rows="3">${currentUser?.profile?.bio || ''}</textarea>
         </div>
         <div class="form-group">
-          <label class="form-label">Profile Picture URL</label>
-          <input type="url" id="profile-avatar-edit" value="${currentUser?.user_metadata?.avatar_url || ''}">
+          <label class="form-label">Profile Picture</label>
+          <div style="display:flex;gap:8px;">
+            <input type="url" id="profile-avatar-edit" value="${currentUser?.user_metadata?.avatar_url || ''}" style="flex:1;">
+            <label class="nav-btn nav-btn-ghost" style="padding:10px;cursor:pointer;">
+              Upload
+              <input type="file" class="hidden" onchange="handleProfileUpload(this, 'profile-avatar-edit')">
+            </label>
+          </div>
         </div>
         <div class="form-group">
-          <label class="form-label">Profile Banner URL (Premium)</label>
-          <input type="url" id="profile-banner-edit" value="${currentUser?.profile?.banner_url || ''}" ${!currentUser?.user_metadata?.is_premium ? 'disabled' : ''}>
+          <label class="form-label">Profile Banner (Premium)</label>
+          <div style="display:flex;gap:8px;">
+            <input type="url" id="profile-banner-edit" value="${currentUser?.profile?.banner_url || ''}" style="flex:1;" ${!currentUser?.user_metadata?.is_premium ? 'disabled' : ''}>
+            <label class="nav-btn nav-btn-ghost" style="padding:10px;cursor:pointer;opacity:${!currentUser?.user_metadata?.is_premium ? 0.5 : 1};pointer-events:${!currentUser?.user_metadata?.is_premium ? 'none' : 'auto'}">
+              Upload
+              <input type="file" class="hidden" onchange="handleProfileUpload(this, 'profile-banner-edit')">
+            </label>
+          </div>
         </div>
         <div class="form-group">
           <label class="form-label">Profile Theme</label>
@@ -704,23 +758,35 @@ function showModal(type, data = {}) {
         </div>
         <div class="form-group">
           <label class="form-label">Price Type</label>
-          <select id="item-price-type" onchange="document.getElementById('item-price-gold-section').classList.toggle(this.value === 'gold')">
+          <select id="item-price-type" onchange="document.getElementById('item-price-gold-section').classList.toggle('hidden', this.value !== 'gold')">
             <option value="free">Free</option>
             <option value="gold">Paid (Gold)</option>
             <option value="key">Key System</option>
           </select>
         </div>
-        <div class="form-group" id="item-price-gold-section">
+        <div class="form-group hidden" id="item-price-gold-section">
           <label class="form-label">Price (Gold)</label>
           <input type="number" id="item-price-gold" min="0">
         </div>
         <div class="form-group">
-          <label class="form-label">Thumbnail URL (optional)</label>
-          <input type="url" id="item-thumbnail" placeholder="Defaults to category image">
+          <label class="form-label">Thumbnail</label>
+          <div style="display:flex;gap:8px;">
+            <input type="url" id="item-thumbnail" placeholder="Thumbnail URL" style="flex:1;">
+            <label class="nav-btn nav-btn-ghost" style="padding:10px;cursor:pointer;">
+              Upload
+              <input type="file" class="hidden" onchange="handleProfileUpload(this, 'item-thumbnail')">
+            </label>
+          </div>
         </div>
         <div class="form-group">
           <label class="form-label">Item Content / Info</label>
-          <textarea id="item-content" rows="3" placeholder="Script code, download link, or item details..."></textarea>
+          <div style="display:flex;flex-direction:column;gap:8px;">
+            <textarea id="item-content" rows="3" placeholder="Script code, download link, or item details..."></textarea>
+            <label class="nav-btn nav-btn-ghost w-full text-center" style="padding:8px;cursor:pointer;font-size:11px;">
+              📁 Upload Script File
+              <input type="file" class="hidden" onchange="handleItemContentUpload(this)">
+            </label>
+          </div>
         </div>
       `;
       footer.innerHTML = '<button class="nav-btn nav-btn-primary" onclick="createItem()">List Item</button>';
@@ -930,8 +996,54 @@ async function saveProfile() {
   }).eq('id', currentUser.id);
   if (error) return alert('Failed: ' + error.message);
   currentUser.profile = { ...currentUser.profile, username, bio, avatar_url: avatar, banner_url: banner, profile_theme: theme };
+  currentUser.user_metadata = { ...currentUser.user_metadata, username, avatar_url: avatar };
   updateProfileView();
+  updateUIForUser();
   closeModal();
+}
+
+async function uploadFile(file, path = 'terrix') {
+    const fileName = `${Date.now()}_${file.name.replace(/\s+/g, '_')}`;
+    const { data, error } = await supabase.storage.from('terrix').upload(fileName, file);
+    if (error) {
+        if (error.message === 'Bucket not found') {
+            alert('Upload bucket "terrix" not found. Please create it in Supabase dashboard.');
+        }
+        throw error;
+    }
+    const { data: { publicUrl } } = supabase.storage.from('terrix').getPublicUrl(data.path);
+    return publicUrl;
+}
+
+async function handleProfileUpload(input, targetId) {
+    const file = input.files[0];
+    if (!file) return;
+    const label = input.parentElement;
+    const originalText = label.textContent;
+    label.innerHTML = '⏳...';
+    try {
+        const url = await uploadFile(file);
+        document.getElementById(targetId).value = url;
+        label.innerHTML = '✅ Done';
+    } catch (err) {
+        alert('Upload failed: ' + err.message);
+        label.innerHTML = originalText;
+    }
+}
+async function handleItemContentUpload(input) {
+    const file = input.files[0];
+    if (!file) return;
+    const label = input.parentElement;
+    const originalText = label.textContent;
+    label.innerHTML = '⏳...';
+    try {
+        const url = await uploadFile(file);
+        document.getElementById('item-content').value = url;
+        label.innerHTML = '✅ Done';
+    } catch (err) {
+        alert('Upload failed: ' + err.message);
+        label.innerHTML = originalText;
+    }
 }
 function showProfile(userId) {
   fetchUserProfile(userId).then(user => {
