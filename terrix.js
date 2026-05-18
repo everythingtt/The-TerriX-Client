@@ -366,14 +366,14 @@
         getMyTroops() {
             const G = this.G;
             if (!G || !G.ag) return 0;
-            const prop = PropResolver.resolveTypedArray(['hB','gx','h7','gt']) || 'hB';
+            const prop = PropResolver.resolveTypedArray(['hB','gx','h7','gt', 'gw', 'yf', 'hA']) || 'gw';
             return G.ag[prop][this.myId] || 0;
         },
 
         getMyTerritory() {
             const G = this.G;
             if (!G || !G.ag) return 0;
-            const prop = PropResolver.resolveTypedArray(['gx','hB','h7','gt','j2']) || 'gx';
+            const prop = PropResolver.resolveTypedArray(['gx','hB','h7','gt','j2', 'gw', 'yf', 'hA']) || 'gw';
             return G.ag[prop][this.myId] || 0;
         },
 
@@ -389,21 +389,21 @@
         getPlayerTroops(id) {
             const G = this.G;
             if (!G || !G.ag) return 0;
-            const prop = PropResolver.resolveTypedArray(['hB','gx','h7','gt']) || 'hB';
+            const prop = PropResolver.resolveTypedArray(['hB','gx','h7','gt', 'gw', 'yf', 'hA']) || 'gw';
             return G.ag[prop][id] || 0;
         },
 
         getPlayerTerritory(id) {
             const G = this.G;
             if (!G || !G.ag) return 0;
-            const prop = PropResolver.resolveTypedArray(['gx','hB','h7','gt','j2']) || 'gx';
+            const prop = PropResolver.resolveTypedArray(['gx','hB','h7','gt','j2', 'gw', 'yf', 'hA']) || 'gw';
             return G.ag[prop][id] || 0;
         },
 
         isPlayerAlive(id) {
             const G = this.G;
             if (!G || !G.ag) return false;
-            const prop = PropResolver.resolveTypedArray(['n4','a4W','a1h','n3','mz']) || 'n4';
+            const prop = PropResolver.resolveTypedArray(['n4','a4W','a1h','n3','mz', 'a4V']) || 'n3';
             return (G.ag[prop][id] || 0) !== 0;
         },
 
@@ -438,28 +438,28 @@
         getBorderTiles(id) {
             const G = this.G;
             if (!G || !G.ag) return [];
-            const prop = PropResolver.resolveAgProp(['gb','gp','gq','fY']) || 'gb';
+            const prop = PropResolver.resolveAgProp(['gb','gp','gq','fY', 'ga', 'go']) || 'gp';
             return (G.ag[prop] && G.ag[prop][id]) || [];
         },
 
         getAllTiles(id) {
             const G = this.G;
             if (!G || !G.ag) return [];
-            const prop = PropResolver.resolveAgProp(['gq','gb','gp','fY']) || 'gq';
+            const prop = PropResolver.resolveAgProp(['gq','gb','gp','fY', 'ga', 'go']) || 'gq';
             return (G.ag[prop] && G.ag[prop][id]) || [];
         },
 
         getLandTiles(id) {
             const G = this.G;
             if (!G || !G.ag) return [];
-            const prop = PropResolver.resolveAgProp(['fY','gq','gb','gp']) || 'fY';
+            const prop = PropResolver.resolveAgProp(['fY','gq','gb','gp', 'ga', 'go']) || 'fY';
             return (G.ag[prop] && G.ag[prop][id]) || [];
         },
 
         getPerimeterTiles(id) {
             const G = this.G;
             if (!G || !G.ag) return [];
-            const prop = PropResolver.resolveAgProp(['gp','gb','gq','fY']) || 'gp';
+            const prop = PropResolver.resolveAgProp(['gp','gb','gq','fY', 'ga', 'go']) || 'gp';
             return (G.ag[prop] && G.ag[prop][id]) || [];
         },
 
@@ -1017,15 +1017,11 @@
 
     function validateHook() {
         const G = _win.G;
-        if (!G) return false;
-        if (!G.aD) return false;
-        if (!G.ag) return false;
-        if (typeof G.aD.et !== 'number') return false;
-        // Check that core typed arrays exist (tile arrays like gb/gp/gq/fY are null until ag.dh() runs)
-        if (!(G.ag.gx instanceof Uint32Array)) return false;
-        if (!(G.ag.hB instanceof Uint32Array)) return false;
-        if (!(G.ag.n4 instanceof Uint8Array)) return false;
-        return true;
+        if (!G || !G.aD || !G.ag || typeof G.aD.et !== 'number') return false;
+        const props = Object.keys(G.ag);
+        const u32s = props.filter(p => G.ag[p] instanceof Uint32Array && G.ag[p].length === G.aD.f5);
+        const u8s = props.filter(p => G.ag[p] instanceof Uint8Array && G.ag[p].length === G.aD.f5);
+        return u32s.length >= 2 && u8s.length >= 1;
     }
 
     function waitForHook(attempts) {
@@ -2532,10 +2528,10 @@
             return null;
         };
         return {
-            territory: findTypedArray(['gx','h7','gt','j2'], Uint32Array),
-            troops: findTypedArray(['hB','h7','gt'], Uint32Array),
-            alive: findTypedArray(['n4','a1h','n3','mz'], Uint8Array) || find(['n4','a4W','a1h']),
-            names: find(['a1o','za','zb','zU','name','names']),
+            territory: findTypedArray(['gx','h7','gt','j2', 'gw', 'yf', 'hA'], Uint32Array),
+            troops: findTypedArray(['hB','h7','gt', 'gw', 'yf', 'hA'], Uint32Array),
+            alive: findTypedArray(['n4','a1h','n3','mz', 'a4V'], Uint8Array) || find(['n4','a4W','a1h', 'n3']),
+            names: find(['a1o','za','zb','zU','name','names', 'ga', 'go']),
             maxPlayers: (G.aD && G.aD.f6) || 512
         };
     }
