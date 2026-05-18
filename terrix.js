@@ -355,12 +355,12 @@
 
         get myId() {
             const G = this.G;
-            return G && G.aD ? G.aD.et : -1;
+            return G && G.aD ? G.aD.es : -1;
         },
 
         get maxPlayers() {
             const G = this.G;
-            return G && G.aD ? G.aD.f6 : 512;
+            return G && G.aD ? G.aD.f5 : 512;
         },
 
         getMyTroops() {
@@ -951,7 +951,7 @@
             const myId = this.myId;
             const G = this.G;
             if (!G) return false;
-            const maxP = G.aD ? (G.aD.f6 || 512) : 512;
+            const maxP = G.aD ? (G.aD.f5 || 512) : 512;
             for (let i = 0; i < maxP; i++) {
                 if (i === myId || !this.isPlayerAlive(i) || this.areAllies(myId, i)) continue;
                 if (this.getBorderWith(i).length > 0) {
@@ -965,7 +965,7 @@
         getAlivePlayers() {
             const G = this.G;
             if (!G) return [];
-            const maxP = G.aD ? (G.aD.f6 || 512) : 512;
+            const maxP = G.aD ? (G.aD.f5 || 512) : 512;
             const players = [];
             for (let i = 0; i < maxP; i++) {
                 if (this.isPlayerAlive(i)) {
@@ -1017,7 +1017,7 @@
 
     function validateHook() {
         const G = _win.G;
-        if (!G || !G.aD || !G.ag || typeof G.aD.et !== 'number') return false;
+        if (!G || !G.aD || !G.ag || typeof G.aD.es !== 'number') return false;
         const props = Object.keys(G.ag);
         const u32s = props.filter(p => G.ag[p] instanceof Uint32Array && G.ag[p].length === G.aD.f5);
         const u8s = props.filter(p => G.ag[p] instanceof Uint8Array && G.ag[p].length === G.aD.f5);
